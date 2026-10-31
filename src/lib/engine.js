@@ -3,21 +3,25 @@
 // Semua posisi dan ukuran relatif terhadap bagian kamera yang terlihat di layar.
 
 export const TARGETS = {
-  // KTP: yang terpenting adalah kartu terlihat utuh dan cukup besar agar NIK terbaca,
-  // bukan ukuran yang persis. Karena itu rentang ukuran dan toleransi posisi dibuat lebar.
+  // KTP: foto diambil SEGERA setelah kartu terlihat utuh dan cukup besar untuk dibaca.
+  // Kartu tidak harus di tengah atau lurus sempurna: kemiringan diluruskan sebelum OCR, dan
+  // kelayakan akhir ditentukan oleh terbacanya NIK (lihat Guide.jsx, checkKtp).
   ktp: {
-    sizeMin: 0.45, // lebar kartu minimal 45% lebar tampilan
-    sizeMax: 0.97,
-    minPx: 260, // lebar kartu minimal dalam piksel kamera asli, agar digit NIK cukup besar
-    edge: 0.012, // kartu tidak boleh terpotong tepi tampilan
-    centerTol: 0.22,
-    maxAngle: 15,
-    minLight: 55, // kecerahan rata-rata KARTU (bukan seluruh layar), 0-255
+    sizeMin: 0.38, // lebar kartu minimal 38% lebar tampilan
+    minPx: 250, // lebar kartu minimal dalam piksel kamera asli, agar digit NIK cukup besar (teruji OCR)
+    edge: 0.01, // kartu harus utuh, tidak terpotong tepi tampilan
+    maxAngle: 30, // kemiringan sampai 30 derajat masih diluruskan otomatis sebelum OCR
+    minLight: 45, // kecerahan rata-rata KARTU (bukan seluruh layar), 0-255
     searchDark: 45, // bila kartu belum terlihat: persentil 95 seluruh layar di bawah ini berarti gelap
-    maxGlare: 0.04, // rasio titik pantulan setempat pada kartu
+    maxGlare: 0.15, // hanya pantulan berat yang menahan foto; pantulan ringan diputuskan oleh OCR
+    idealMin: 0.5, // rentang jarak nyaman untuk nada (lebar kartu relatif tampilan)
+    idealMax: 0.8,
   },
   selfie: { sizeMin: 0.32, sizeMax: 0.62, centerTolX: 0.12, centerTolY: 0.14, maxYaw: 0.25, maxRoll: 12, maxTilt: 30, minLight: 55, searchDark: 55 },
 };
+
+// Ambang pantulan untuk catatan kualitas setelah foto diambil (bukan penahan foto).
+export const GLARE_WARN = 0.04;
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
@@ -28,57 +32,44 @@ function cardCut(m, e) {
 }
 
 // Instruksi KTP. Kunci arah selalu menggambarkan letak kartu di gambar:
-//   kiri/kanan  = kartu perlu bergeser ke tengah dari sisi kiri/kanan gambar,
-//   atas/bawah  = kartu berada di bagian atas/bawah gambar,
+//   kiri/kanan  = kartu terpotong di sisi kiri/kanan gambar (geser ke arah itu),
+//   atas/bawah  = kartu terpotong di bagian atas/bawah gambar,
 //   dekatkan/jauhkan, putar_kanan (searah jarum jam), putar_kiri, putar_tegak.
 // Kalimat yang diucapkan disesuaikan dengan jenis kamera di messages.js
 // (kamera belakang ponsel: "geser ponsel"; webcam laptop: "geser KTP").
+// Urutan: kartu utuh dulu (tidak terpotong, tidak terlalu dekat), lalu cukup besar, cukup terang,
+// tidak silau berat, tidak terlalu miring. Bila semua terpenuhi: 'tahan' (ok) dan foto langsung diambil.
 // err: seberapa jauh dari kondisi tepat (dipakai untuk memberi pujian "terus" saat membaik).
 // small: penyimpangan kecil, sehingga cukup diucapkan "sedikit".
-function decideKtp(t, m, slack, base) {
+function decideKtp(t, m, slack, base, opts) {
   const r = (key, extra = {}) => ({ ...base, key, ok: false, small: false, err: 1, ...extra });
-  if (m.light !== undefined && m.light < t.minLight / (slack > 1 ? 1.15 : 1)) return r('gelap');
-  if (m.glare !== undefined && m.glare > t.maxGlare * slack) return r('silau');
-
   if (m.tooClose) return r('jauhkan', { err: 0.3 });
 
   const b = m.bbox || { x: 0, y: 0, w: 1, h: 1 };
   const cut = cardCut(m, t.edge / slack);
-  // Terpotong di dua sisi berlawanan, terlalu besar, atau terpotong satu sisi padahal sudah hampir selebar layar.
-  if (
-    (cut.l && cut.r) ||
-    (cut.t && cut.b) ||
-    m.size > t.sizeMax * slack ||
-    ((cut.l || cut.r) && b.w > 0.85) ||
-    ((cut.t || cut.b) && b.h > 0.85)
-  ) {
-    return r('jauhkan', { err: Math.max(m.size - t.sizeMax, b.w - 0.85, 0.05), small: m.size < t.sizeMax + 0.06 });
+  // Terpotong di dua sisi berlawanan, atau terpotong satu sisi padahal sudah hampir selebar layar: terlalu dekat.
+  if ((cut.l && cut.r) || (cut.t && cut.b) || ((cut.l || cut.r) && b.w > 0.85) || ((cut.t || cut.b) && b.h > 0.85)) {
+    return r('jauhkan', { err: Math.max(b.w - 0.85, 0.05), small: b.w < 0.95 });
   }
-  // Terpotong di satu sisi: geser ke arah sisi itu.
-  if (cut.l || cut.r) return r(cut.l ? 'kiri' : 'kanan', { err: Math.abs(m.cx - 0.5) });
-  if (cut.t || cut.b) return r(cut.t ? 'atas' : 'bawah', { err: Math.abs(m.cy - 0.5) });
+  // Terpotong di satu sisi: geser ke arah sisi itu. Bila kartu hanya sedikit keluar bingkai, cukup "sedikit".
+  if (cut.l || cut.r) return r(cut.l ? 'kiri' : 'kanan', { err: Math.abs(m.cx - 0.5), small: !m.partial });
+  if (cut.t || cut.b) return r(cut.t ? 'atas' : 'bawah', { err: Math.abs(m.cy - 0.5), small: !m.partial });
 
-  const needPx = m.px !== undefined ? t.minPx / slack : 0;
   const sizeMin = t.sizeMin / slack;
+  const needPx = t.minPx / slack;
   if (m.size < sizeMin || (m.px !== undefined && m.px < needPx)) {
     const gap = Math.max(sizeMin - m.size, m.px !== undefined ? (needPx - m.px) / Math.max(1, m.px / m.size) : 0);
-    return r('dekatkan', { err: gap, small: gap < 0.08 });
+    return r('dekatkan', { err: gap, small: gap < 0.1 });
   }
 
-  const tol = t.centerTol * slack;
-  const offX = m.cx - 0.5;
-  const offY = m.cy - 0.5;
-  const exX = Math.abs(offX) - tol;
-  const exY = Math.abs(offY) - tol;
-  if (exX > 0 || exY > 0) {
-    if (exX >= exY) return r(offX < 0 ? 'kiri' : 'kanan', { err: Math.abs(offX), small: exX < 0.1 });
-    return r(offY < 0 ? 'atas' : 'bawah', { err: Math.abs(offY), small: exY < 0.1 });
-  }
+  if (m.light !== undefined && m.light < t.minLight / slack) return r('gelap');
+  const maxGlare = opts && typeof opts.maxGlare === 'number' ? opts.maxGlare : t.maxGlare;
+  if (m.glare !== undefined && m.glare > maxGlare * slack) return r('silau');
 
   const ang = m.angle || 0; // derajat, positif = kartu terlihat berputar searah jarum jam
   const a = Math.abs(ang);
-  if (a > 45) return r('putar_tegak', { err: 90 - a });
-  if (a > t.maxAngle * slack) return r(ang > 0 ? 'putar_kanan' : 'putar_kiri', { err: a / 90, small: a < 25 });
+  if (a > 55) return r('putar_tegak', { err: 90 - a });
+  if (a > t.maxAngle * slack) return r(ang > 0 ? 'putar_kanan' : 'putar_kiri', { err: a / 90, small: a < 40 });
 
   return { ...base, key: 'tahan', ok: true, small: false, err: 0 };
 }
@@ -109,9 +100,11 @@ function decideSelfie(t, m, slack, base, offX, offY, moveX, moveY) {
 // m: hasil analisis frame (detectCard atau analyzeFace) ditambah { light, glare, tilt, px, frameP95 }.
 // prevOk: apakah frame sebelumnya sudah "tepat" (histeresis agar status tidak berganti-ganti).
 // opts.cam: 'rear' (kamera belakang ponsel) atau 'front' (webcam laptop/kamera depan), hanya untuk KTP.
+// opts.maxGlare: batas pantulan khusus (lebih ketat setelah foto gagal karena pantulan).
 export function decide(mode, m, prevOk = false, opts = {}) {
   const t = TARGETS[mode];
-  const slack = prevOk ? 1.35 : 1; // toleransi lebih longgar untuk tetap dianggap tepat
+  // Toleransi lebih longgar untuk tetap dianggap tepat (histeresis), agar status tidak berganti-ganti.
+  const slack = prevOk ? (mode === 'ktp' ? 1.2 : 1.35) : 1;
   if (!m || !m.found) {
     if (mode === 'ktp') {
       // Latar KTP memang dianjurkan gelap, jadi yang dinilai adalah bagian TERANG layar (persentil 95):
@@ -133,11 +126,11 @@ export function decide(mode, m, prevOk = false, opts = {}) {
     const front = opts.cam === 'front';
     const moveX = clamp(offX * 2, -1, 1);
     const moveY = front ? clamp(offY * 2, -1, 1) : clamp(-offY * 2, -1, 1);
-    const lo = t.sizeMin;
-    const hi = 0.8; // rentang jarak nyaman untuk nada
+    const lo = t.idealMin;
+    const hi = t.idealMax;
     const mid = (lo + hi) / 2;
     const distErr = m.size >= lo && m.size <= hi ? 0 : clamp(Math.abs(m.size - mid) / mid, 0, 1);
-    return decideKtp(t, m, slack, { found: true, moveX, moveY, distErr });
+    return decideKtp(t, m, slack, { found: true, moveX, moveY, distErr }, opts);
   }
 
   // Swafoto. Gambar kamera depan belum dicerminkan, sehingga arah kiri-kanan dibalik.
@@ -146,23 +139,6 @@ export function decide(mode, m, prevOk = false, opts = {}) {
   const mid = (t.sizeMin + t.sizeMax) / 2;
   const distErr = clamp(Math.abs(m.size - mid) / mid, 0, 1);
   return decideSelfie(t, m, slack, { found: true, moveX, moveY, distErr }, offX, offY, moveX, moveY);
-}
-
-// Apakah KTP sudah cukup terlihat untuk dibaca walaupun posisinya belum ideal
-// (misalnya sedikit di luar tengah atau sedikit miring). Dipakai sebagai jalur cadangan
-// agar foto tetap diambil otomatis dan pengguna tidak terus-menerus menyesuaikan posisi.
-export function ktpReadable(m) {
-  const t = TARGETS.ktp;
-  if (!m || !m.found || m.tooClose) return false;
-  if (m.light !== undefined && m.light < t.minLight * 0.85) return false;
-  if (m.glare !== undefined && m.glare > t.maxGlare * 2) return false;
-  const cut = cardCut(m, 0.004);
-  if (cut.l || cut.r || cut.t || cut.b) return false;
-  if (m.size < t.sizeMin * 0.85) return false;
-  if (m.px !== undefined && m.px < t.minPx * 0.9) return false;
-  const a = Math.abs(m.angle || 0);
-  if (a > 25 && a < 155) return false;
-  return true;
 }
 
 // Pelacak kestabilan berbasis akumulasi waktu.

@@ -9,19 +9,25 @@ const median = (arr) => {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 };
 
+// Status "kartu terlihat" memakai histeresis: menjadi terlihat bila >= enterRatio frame dalam jendela
+// menemukan kartu, dan baru dianggap hilang bila < exitRatio. Frame yang sesekali gagal (fokus kamera
+// berburu, pita kedip layar, getaran) tidak membuat kartu dianggap hilang.
 export class MedianTracker {
-  constructor(windowMs = 400, minFoundRatio = 0.5) {
+  constructor(windowMs = 300, enterRatio = 0.5, exitRatio = 0.25) {
     this.windowMs = windowMs;
-    this.minFoundRatio = minFoundRatio;
+    this.enterRatio = enterRatio;
+    this.exitRatio = exitRatio;
     this.hist = [];
     this.last = null; // hasil tersaring terakhir yang ditemukan
     this.lastAt = 0;
+    this.visible = false;
   }
 
   reset() {
     this.hist = [];
     this.last = null;
     this.lastAt = 0;
+    this.visible = false;
   }
 
   // Posisi dan ukuran acuan untuk detectCard (agar kandidat tidak melompat, dan untuk mengenali
@@ -36,7 +42,9 @@ export class MedianTracker {
     const all = this.hist.map((h) => h.m);
     const found = all.filter((x) => x.found);
     const frameP95 = median(all.map((x) => x.frameP95).filter((v) => v !== undefined));
-    if (!found.length || found.length / all.length < this.minFoundRatio) {
+    const ratio = all.length ? found.length / all.length : 0;
+    this.visible = found.length > 0 && ratio >= (this.visible ? this.exitRatio : this.enterRatio);
+    if (!this.visible) {
       return { found: false, frameP95, light: frameP95 };
     }
     const pick = (k) => median(found.map((x) => x[k]).filter((v) => typeof v === 'number'));
@@ -55,6 +63,7 @@ export class MedianTracker {
       angle: pick('angle'),
       light: pick('light'),
       glare: pick('glare'),
+      saturated: pick('saturated'),
       frameP95,
       bbox: { x: x1, y: y1, w: x2 - x1, h: y2 - y1 },
       stability: found.length / all.length,
@@ -72,7 +81,7 @@ function pick2(found, f) {
 }
 
 export class KeyVoter {
-  constructor(windowMs = 450) {
+  constructor(windowMs = 300) {
     this.windowMs = windowMs;
     this.reset();
   }

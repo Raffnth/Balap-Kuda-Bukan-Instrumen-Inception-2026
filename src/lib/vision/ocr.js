@@ -1,6 +1,6 @@
 // Pembacaan NIK dengan Tesseract.js (OCR di perangkat). Isi NIK tidak pernah diucapkan atau dikirim.
 
-import { cropCanvas, binarize } from './imageTools.js';
+import { cropCanvas, normalizeBinarize } from './imageTools.js';
 
 let workerPromise = null;
 
@@ -64,7 +64,8 @@ export function deskew(photo, card) {
 }
 
 // Potongan gambar yang dicoba OCR, berurutan: area NIK apa adanya (Tesseract punya ambang sendiri),
-// area NIK hitam-putih, area NIK bila KTP terbalik, lalu seluruh kartu.
+// area NIK hitam-putih dengan koreksi cahaya (bayangan, pita kedip layar), area NIK bila KTP terbalik,
+// lalu seluruh kartu.
 export function nikCrops(photo, card) {
   const straight = deskew(photo, card);
   const src = straight ? straight.canvas : photo;
@@ -76,11 +77,12 @@ export function nikCrops(photo, card) {
   const nikArea = { x: box.x + box.w * 0.05, y: box.y + box.h * 0.1, w: box.w * 0.9, h: box.h * 0.32 };
   const nikAreaFlipped = { x: box.x + box.w * 0.05, y: box.y + box.h * 0.58, w: box.w * 0.9, h: box.h * 0.32 };
   const scale = Math.min(3, Math.max(1, 1100 / Math.max(1, nikArea.w)));
+  // Potongan dibuat saat dibutuhkan saja, agar berhenti secepatnya begitu NIK terbaca.
   return [
-    { canvas: cropCanvas(src, nikArea, { scale }), upsideDown: false },
-    { canvas: binarize(cropCanvas(src, nikArea, { scale })), upsideDown: false },
-    { canvas: binarize(cropCanvas(src, nikAreaFlipped, { scale, rotate180: true })), upsideDown: true },
-    { canvas: cropCanvas(src, box, { scale: Math.min(2, scale) }), upsideDown: false },
+    { make: () => cropCanvas(src, nikArea, { scale }), upsideDown: false },
+    { make: () => normalizeBinarize(cropCanvas(src, nikArea, { scale })), upsideDown: false },
+    { make: () => normalizeBinarize(cropCanvas(src, nikAreaFlipped, { scale, rotate180: true })), upsideDown: true },
+    { make: () => normalizeBinarize(cropCanvas(src, box, { scale: Math.min(2, scale) }), { radiusFrac: 0.03 }), upsideDown: false },
   ];
 }
 
@@ -89,14 +91,13 @@ export function nikCrops(photo, card) {
 export async function readNik(photo, card) {
   try {
     const worker = await withTimeout(warmUpOcr(), 20000);
-    // Semua potongan disiapkan sekaligus (murah); OCR berhenti begitu NIK terbaca.
     const crops = nikCrops(photo, card);
     // Batas waktu total agar pemeriksaan di ponsel tidak terasa macet.
     const deadline = performance.now() + 15000;
     for (const c of crops) {
       const left = deadline - performance.now();
       if (left < 1500) break;
-      const { data } = await withTimeout(worker.recognize(c.canvas), Math.min(8000, left));
+      const { data } = await withTimeout(worker.recognize(c.make()), Math.min(8000, left));
       if (findNik(data && data.text)) return { readable: true, upsideDown: c.upsideDown };
     }
     return { readable: false, upsideDown: false };

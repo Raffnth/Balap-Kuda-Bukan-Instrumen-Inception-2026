@@ -99,13 +99,21 @@ class Feedback {
     this.level = level;
   }
 
-  // Ucapkan teks. interrupt=true memotong ucapan sebelumnya.
-  say(text, { interrupt = false } = {}) {
+  // Ucapkan teks. interrupt=true memotong ucapan sebelumnya. rate: kecepatan bicara (1 = normal).
+  say(text, { interrupt = false, rate = 1 } = {}) {
     if (!text || !this.speechSupported) return Promise.resolve();
     const synth = window.speechSynthesis;
+    const id = (this.sayId = (this.sayId || 0) + 1);
     return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        // Hanya ucapan terakhir yang boleh menandai "selesai bicara".
+        if (this.sayId === id) this.speaking = false;
+        resolve();
+      };
       try {
-        if (interrupt) synth.cancel();
         if (!this.voice) this._pickVoice(); // daftar suara di Android sering baru tersedia belakangan
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'id-ID';
@@ -117,26 +125,30 @@ class Feedback {
             u.lang = 'id-ID';
           }
         }
-        u.rate = 1;
+        u.rate = rate;
         u.pitch = 1;
-        let done = false;
-        const finish = () => {
-          if (done) return;
-          done = true;
-          this.speaking = false;
-          resolve();
-        };
         u.onend = finish;
         u.onerror = finish;
         // Pengaman bila event onend tidak pernah datang (terjadi di beberapa browser).
-        setTimeout(finish, 600 + text.length * 90);
+        setTimeout(finish, 800 + (text.length * 90) / rate);
         this.speaking = true;
+        // Simpan referensi: di Chrome, ucapan yang terhapus dari memori tidak memicu onend.
+        this.utterances = (this.utterances || []).slice(-4).concat(u);
         this.lastSpoken = text;
         this.lastSpokenAt = performance.now();
-        synth.speak(u);
+        const busy = synth.speaking || synth.pending;
+        if (interrupt && busy) {
+          synth.cancel();
+          // Chrome Android kadang mengabaikan ucapan yang dikirim tepat setelah cancel(); beri jeda singkat.
+          setTimeout(() => {
+            if (!done && this.sayId === id) synth.speak(u);
+            else finish();
+          }, 80);
+        } else {
+          synth.speak(u);
+        }
       } catch {
-        this.speaking = false;
-        resolve();
+        finish();
       }
     });
   }

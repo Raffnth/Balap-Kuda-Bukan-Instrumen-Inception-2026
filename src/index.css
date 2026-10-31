@@ -420,8 +420,8 @@ fieldset legend {
 }
 
 .target-card {
-  left: 12%;
-  right: 12%;
+  left: 18%;
+  right: 18%;
   top: 50%;
   aspect-ratio: 85.6 / 53.98;
   transform: translateY(-50%);

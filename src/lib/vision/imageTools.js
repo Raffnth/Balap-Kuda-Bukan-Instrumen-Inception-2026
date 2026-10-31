@@ -56,15 +56,15 @@ export function sharpness(gray, w, h, rect = fullRect(w, h)) {
   return sumSq / n - mean * mean;
 }
 
-// Statistik cahaya dalam satu langkah: rata-rata, median, persentil 95, dan rasio titik silau.
-// Titik silau = piksel yang jauh lebih terang daripada warna dasar kartu.
-// Warna dasar kartu diperkirakan dari persentil 80 (bagian kartu yang terang, bukan teks atau foto),
-// lalu ambang silau = maks(248, persentil80 + 15). Kartu yang seluruhnya terang merata
-// (misalnya kartu uji di layar) tidak dianggap silau; yang dihitung hanya pantulan setempat.
+// Statistik cahaya dalam satu langkah: rata-rata, median, persentil 95, rasio titik silau, dan rasio jenuh.
+// Titik silau = piksel yang jauh lebih terang daripada warna dasar kartu: ambang = maks(248, persentil60 + 25).
+// Persentil 60 mewakili warna dasar kartu (bukan teks, foto, atau pantulan), sehingga kartu yang terang
+// merata atau agak terlalu terang (misalnya kartu uji di layar laptop) tidak dianggap silau; yang dihitung
+// hanya pantulan setempat. saturated = rasio piksel hampir putih (>= 250) apa adanya.
 export function lightStats(gray, w, h, rect = fullRect(w, h)) {
   const r = clampRect(rect, w, h);
   const n = r.w * r.h;
-  if (!n) return { mean: 0, median: 0, p95: 0, glare: 0 };
+  if (!n) return { mean: 0, median: 0, p95: 0, glare: 0, saturated: 0 };
   const hist = new Uint32Array(256);
   let sum = 0;
   for (let y = r.y; y < r.y + r.h; y++) {
@@ -86,11 +86,12 @@ export function lightStats(gray, w, h, rect = fullRect(w, h)) {
   };
   const median = at(0.5);
   const p95 = at(0.95);
-  const p80 = at(0.8);
-  const thr = Math.max(248, p80 + 15);
+  const thr = Math.max(248, at(0.6) + 25);
   let hot = 0;
   for (let i = thr; i < 256; i++) hot += hist[i];
-  return { mean: sum / n, median, p95, glare: thr > 255 ? 0 : hot / n };
+  let sat = 0;
+  for (let i = 250; i < 256; i++) sat += hist[i];
+  return { mean: sum / n, median, p95, glare: thr > 255 ? 0 : hot / n, saturated: sat / n };
 }
 
 // Proporsi piksel sangat terang (pantulan cahaya/silau).
@@ -181,6 +182,61 @@ export function binarize(canvas) {
   const t = otsuThreshold(gray);
   for (let i = 0, j = 0; j < gray.length; i += 4, j++) {
     const v = gray[j] > t ? 255 : 0;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+    img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}
+
+// Filter maksimum/minimum 1 dimensi dengan antrean monoton (waktu linear), per baris atau per kolom.
+function minMaxFilter(src, dst, w, h, r, isMax, horizontal) {
+  const len = horizontal ? w : h;
+  const lines = horizontal ? h : w;
+  const step = horizontal ? 1 : w;
+  const idx = new Int32Array(len);
+  for (let line = 0; line < lines; line++) {
+    const base = horizontal ? line * w : line;
+    let head = 0;
+    let tail = 0;
+    let j = 0;
+    for (let i = 0; i < len; i++) {
+      const hi = Math.min(len - 1, i + r);
+      while (j <= hi) {
+        const v = src[base + j * step];
+        while (tail > head) {
+          const last = src[base + idx[tail - 1] * step];
+          if (isMax ? last <= v : last >= v) tail--;
+          else break;
+        }
+        idx[tail++] = j;
+        j++;
+      }
+      while (idx[head] < i - r) head++;
+      dst[base + i * step] = src[base + idx[head] * step];
+    }
+  }
+}
+
+// Hitam-putih dengan koreksi cahaya tidak merata (untuk OCR). Latar diperkirakan dengan operasi "closing"
+// (maksimum lalu minimum lokal) yang menghapus goresan teks gelap namun mempertahankan batas bayangan.
+// Piksel dianggap tinta bila lebih gelap dari 70% latar di sekitarnya. Dengan cara ini NIK tetap terbaca
+// walaupun sebagian kartu tertutup bayangan ponsel atau terkena pita kedip layar.
+export function normalizeBinarize(canvas, { radiusFrac = 0.06, ratio = 0.7 } = {}) {
+  const w = canvas.width;
+  const h = canvas.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const img = ctx.getImageData(0, 0, w, h);
+  const gray = toGray(img.data, w, h);
+  const r = Math.max(3, Math.round(Math.min(w, h) * radiusFrac));
+  const a = new Uint8ClampedArray(w * h);
+  const b = new Uint8ClampedArray(w * h);
+  minMaxFilter(gray, a, w, h, r, true, true);
+  minMaxFilter(a, b, w, h, r, true, false);
+  minMaxFilter(b, a, w, h, r, false, true);
+  minMaxFilter(a, b, w, h, r, false, false); // b = perkiraan latar
+  for (let p = 0, i = 0; p < w * h; p++, i += 4) {
+    const v = gray[p] < Math.max(1, b[p]) * ratio ? 0 : 255;
     img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
     img.data[i + 3] = 255;
   }

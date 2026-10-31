@@ -130,22 +130,31 @@ function isPartialCard(d) {
 
 // Kartu identitas selalu berisi teks dan foto, sehingga di dalam bentuknya ada "lubang" gelap.
 // Permukaan polos yang terang (dinding, jendela, kertas kosong) tidak punya lubang dan diabaikan.
+// Rentang rasio sisi dibuat lebar (1,15-2,3) karena ponsel yang tidak sejajar dengan meja membuat
+// kartu tampak memendek atau memanjang (perspektif).
 function isCardLike(d) {
   return (
     d.holeRatio >= 0.005 &&
     d.areaRatio >= 0.03 &&
     d.areaRatio <= 0.92 &&
     d.touches <= 2 &&
-    d.aspect >= 1.25 &&
-    d.aspect <= 2.0 &&
+    d.aspect >= 1.15 &&
+    d.aspect <= 2.3 &&
     d.rectangularity >= 0.75
   );
+}
+
+// Kandidat kartu yang sudah jelas (persegi rapi, rasio mirip KTP, tidak menyentuh tepi):
+// bila sudah ada, ambang lain tidak perlu dicoba sehingga analisis tetap cepat.
+function isStrong(c) {
+  return !c.partial && c.rectangularity >= 0.9 && c.aspect >= 1.35 && c.aspect <= 1.85 && c.touches === 0;
 }
 
 const buffers = { size: 0, mask: null, labels: null, stack: null, reached: null };
 
 // imageData: hasil getImageData dari frame kamera yang diperkecil (lebar sekitar 160-200 px).
-// prev (opsional): posisi kartu terakhir { cx, cy } agar pilihan kandidat tidak melompat-lompat.
+// prev (opsional): posisi dan ukuran kartu terakhir { cx, cy, size } agar pilihan kandidat tidak
+// melompat-lompat dan agar kondisi "terlalu dekat" dapat dikenali.
 export function detectCard(imageData, prev = null) {
   const { data, width: w, height: h } = imageData;
   const gray = toGray(data, w, h);
@@ -163,11 +172,37 @@ export function detectCard(imageData, prev = null) {
   }
   const { mask, labels, stack, reached } = buffers;
 
+  // Rata-rata kelas gelap dan terang hasil Otsu, untuk ambang tambahan.
+  let sumLo = 0;
+  let nLo = 0;
+  let sumHi = 0;
+  let nHi = 0;
+  for (let i = 0; i < n; i++) {
+    const v = gray[i];
+    if (v <= threshold) {
+      sumLo += v;
+      nLo++;
+    } else {
+      sumHi += v;
+      nHi++;
+    }
+  }
+  const meanLo = nLo ? sumLo / nLo : 0;
+  const meanHi = nHi ? sumHi / nHi : 255;
+  // Ambang kartu terang: Otsu, lalu ambang yang lebih rendah agar bagian kartu yang terkena bayangan
+  // ponsel/tangan atau cahaya tidak merata tetap terhitung sebagai satu kartu utuh.
+  const brightThr = [threshold];
+  const lowThr = Math.round((threshold + meanLo) / 2);
+  if (threshold - lowThr >= 8) brightThr.push(lowThr);
+  // Ambang kartu gelap (kartu di atas meja putih): Otsu, lalu ambang yang lebih tinggi.
+  const darkThr = [threshold];
+  const highThr = Math.round((threshold + meanHi) / 2);
+  if (highThr - threshold >= 8) darkThr.push(highThr);
+
   const candidates = [];
   let close = null; // kartu menutupi hampir seluruh layar (ponsel terlalu dekat)
-  // Kartu terang di latar gelap (kasus utama: KTP dan kartu uji), lalu kartu gelap di latar terang.
-  for (const bright of [true, false]) {
-    for (let i = 0; i < n; i++) mask[i] = bright ? (gray[i] > threshold ? 1 : 0) : gray[i] <= threshold ? 1 : 0;
+  const scan = (bright, thr) => {
+    for (let i = 0; i < n; i++) mask[i] = bright ? (gray[i] > thr ? 1 : 0) : gray[i] <= thr ? 1 : 0;
     for (const comp of largestComponents(mask, w, h, labels, stack)) {
       if (comp.area < 0.02 * n) continue;
       const d = describe(filledMoments(comp, labels, w, h, reached, stack), w, h);
@@ -180,9 +215,21 @@ export function detectCard(imageData, prev = null) {
       const full = isCardLike(d);
       const partial = !full && bright && isPartialCard(d);
       if (!full && !partial) continue;
-      const ratioScore = full ? 1 - Math.min(1, Math.abs(d.aspect - ID1_RATIO) / 0.6) : 0;
+      const ratioScore = full ? 1 - Math.min(1, Math.abs(d.aspect - ID1_RATIO) / 0.8) : 0;
       const score = d.areaRatio * d.rectangularity * (0.5 + 0.5 * ratioScore) * (partial ? 0.6 : 1);
       candidates.push({ ...d, score, bright, partial });
+    }
+  };
+  // Kartu terang di latar gelap (kasus utama: KTP dan kartu uji) lebih dulu.
+  for (const thr of brightThr) {
+    scan(true, thr);
+    if (candidates.some(isStrong)) break;
+  }
+  // Kartu gelap di latar terang hanya dicoba bila tidak ada kandidat terang sama sekali.
+  if (!candidates.length) {
+    for (const thr of darkThr) {
+      scan(false, thr);
+      if (candidates.some(isStrong)) break;
     }
   }
   if (!candidates.length) {

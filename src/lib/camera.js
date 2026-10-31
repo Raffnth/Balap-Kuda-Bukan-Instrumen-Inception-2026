@@ -19,7 +19,12 @@ export async function openCamera(facing) {
   const hi = facing === 'environment';
   const attempts = [
     {
-      video: { facingMode: { ideal: facing }, width: { ideal: hi ? 1920 : 1280 }, height: { ideal: hi ? 1080 : 720 } },
+      video: {
+        facingMode: { ideal: facing },
+        width: { ideal: hi ? 1920 : 1280 },
+        height: { ideal: hi ? 1080 : 720 },
+        frameRate: { ideal: 30 },
+      },
       audio: false,
     },
     { video: { facingMode: facing }, audio: false },
@@ -48,6 +53,28 @@ export async function improveFocus(stream) {
     }
   } catch {
     /* tidak didukung: abaikan */
+  }
+}
+
+// Senter (lampu kilat) kamera belakang. Dipakai otomatis saat ruangan terlalu gelap.
+export function torchSupported(stream) {
+  try {
+    const track = stream && stream.getVideoTracks()[0];
+    const caps = track && track.getCapabilities ? track.getCapabilities() : null;
+    return !!(caps && caps.torch);
+  } catch {
+    return false;
+  }
+}
+
+export async function setTorch(stream, on) {
+  try {
+    const track = stream && stream.getVideoTracks()[0];
+    if (!track) return false;
+    await track.applyConstraints({ advanced: [{ torch: !!on }] });
+    return true;
+  } catch {
+    return false;
   }
 }
 

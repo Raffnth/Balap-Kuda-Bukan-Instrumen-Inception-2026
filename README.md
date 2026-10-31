@@ -9,14 +9,16 @@ Dibuat oleh tim **Balap Kuda Bukan Instrumen** untuk Hacking Day **INCEPTION 202
 - Aplikasi: buka **https://sonarid.my.id** di Chrome Android (tidak perlu instal atau login).
 - Kartu uji pengganti KTP: buka `/kartu-uji.html` di layar lain, atau cetak seukuran KTP. Semua data pada kartu uji fiktif.
 - Untuk membuktikan proses tanpa melihat layar, aktifkan **Mode Uji Non-Visual** di beranda.
+- Tombol **Uji suara dan getar** di beranda memastikan suara bahasa Indonesia dan getar berfungsi sebelum mulai.
+- Mode diagnosis: buka `https://sonarid.my.id/?debug=1` untuk melihat kotak deteksi dan angka analisis di bawah kamera.
 
 ## Alur
 
 | No | Layar | Fungsi |
 |---|---|---|
 | 1 | Beranda | Pilih tingkat detail suara (Lengkap, Ringkas, Nada saja) dan Mode Uji Non-Visual |
-| 2 | Foto KTP | Kamera belakang. Cek cahaya, lalu panduan arah, jarak, dan kemiringan. Foto diambil otomatis saat stabil |
-| 3 | Pemeriksaan KTP | Ketajaman, cahaya, silau, keterbacaan 16 digit NIK (OCR), dan deteksi KTP terbalik. Isi NIK tidak pernah dibacakan |
+| 2 | Foto KTP | Kamera belakang. Foto diambil otomatis sekitar 0,4 detik setelah KTP terlihat utuh dan cukup besar untuk dibaca, tanpa harus pas di tengah. Panduan arah, jarak, dan kemiringan hanya muncul bila KTP belum layak |
+| 3 | Pemeriksaan KTP | Keterbacaan 16 digit NIK (OCR, kartu miring diluruskan dulu), ketajaman, cahaya, pantulan, dan deteksi KTP terbalik. Foto diterima bila NIK terbaca; masalah ringan dicatat sebagai peringatan. Isi NIK tidak pernah dibacakan |
 | 4 | Swafoto | Kamera depan. Panduan posisi, jarak, kemiringan, dan arah wajah dengan MediaPipe Face Landmarker |
 | 5 | Hasil pemeriksaan | Ringkasan dibacakan. Pengguna menyetujui sebelum foto dikirim |
 | 6 | Penyedia (simulasi) | Bank fiktif menerima foto dan laporan kualitas. Keputusan akhir tetap milik penyedia |
@@ -32,8 +34,9 @@ Dibuat oleh tim **Balap Kuda Bukan Instrumen** untuk Hacking Day **INCEPTION 202
 | Jarak | "Dekatkan/Jauhkan ponsel" | Laju ketukan melambat saat mendekati jarak ideal |
 | Kemiringan KTP | "Putar ponsel sedikit searah/berlawanan arah jarum jam" | — |
 | Kemajuan | "Bagus, terus" saat bergerak ke arah yang benar, "Kelewatan" saat gerakan melewati posisi tepat | — |
-| Posisi tepat | "Posisi tepat. Tahan sebentar." | Nada jernih dan stabil |
-| Foto diambil | "Foto diambil" | Bunyi rana dan getar singkat |
+| Posisi tepat | Foto langsung diambil ("Tahan" hanya bila perlu menunggu) | Nada jernih dan stabil, getar ganda |
+| Foto diambil | "Foto KTP diambil. Sedang diperiksa." | Bunyi rana dan getar singkat |
+| Ruangan gelap | "Terlalu gelap…", lalu "Senter dinyalakan" bila ponsel mendukung | — |
 | Gagal | Alasan singkat dan arah perbaikan | Nada turun dan pola getar |
 
 Hanya satu instruksi disampaikan pada satu waktu, dengan urutan prioritas: keberadaan objek, cahaya, jarak, posisi, kemiringan, lalu kestabilan.
@@ -43,11 +46,14 @@ Agar instruksi KTP tidak keliru atau berganti-ganti:
 | Mekanisme | Fungsi |
 |---|---|
 | Analisis area yang tampil di layar | Penilaian posisi sesuai dengan bingkai di layar, juga pada webcam laptop yang berasio lebar |
-| Median beberapa frame dan pemungutan suara instruksi | Satu frame yang keliru tidak mengubah instruksi. Instruksi baru diucapkan setelah konsisten sekitar setengah detik |
+| Median beberapa frame dan pemungutan suara instruksi | Satu frame yang keliru tidak mengubah instruksi. Instruksi baru diucapkan setelah konsisten sekitar 0,2 detik; nada dan getar berubah setiap frame |
+| Ambang ganda dan histeresis | Kartu tetap terdeteksi walau sebagian tertutup bayangan ponsel, terkena pita kedip layar, atau fokus kamera sedang menyesuaikan |
+| Toleransi perspektif dan kemiringan | Ponsel tidak harus sejajar meja; kemiringan sampai 30 derajat diluruskan otomatis sebelum NIK dibaca |
 | Cahaya dinilai pada kartu | Latar gelap yang dianjurkan tidak dianggap "terlalu gelap"; silau dihitung dari pantulan setempat |
 | Kartu terpotong tepi layar tetap dikenali | Pengguna mendapat arah geser yang benar, bukan "KTP belum terlihat" |
 | Kalimat menyesuaikan kamera | Kamera belakang ponsel: "geser ponsel". Webcam laptop untuk uji coba: "geser KTP", dengan pratinjau dicerminkan |
-| Foto otomatis saat KTP cukup terbaca | Tidak harus pas di tengah; bila kartu utuh dan cukup besar selama sekitar 2,5 detik, foto tetap diambil |
+| Foto otomatis saat KTP cukup terbaca | Tidak harus pas di tengah; begitu kartu utuh dan cukup besar selama sekitar 0,4 detik (dan tidak sedang digerakkan cepat), tiga frame diambil dan yang paling tajam dipakai |
+| Penerimaan berdasarkan NIK | Pantulan ringan, cahaya agak kurang, atau sedikit buram tidak menggagalkan foto selama NIK terbaca. Bila gagal, saran perbaikan disesuaikan penyebabnya (pantulan, gelap, kurang fokus, atau terlalu jauh) |
 
 ## Teknologi
 

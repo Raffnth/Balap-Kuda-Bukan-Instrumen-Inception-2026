@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DETAIL_LEVELS } from '../lib/messages.js';
 import { cameraAvailable } from '../lib/camera.js';
 import { feedback } from '../lib/feedback.js';
+import { warmUpOcr } from '../lib/vision/ocr.js';
 import { LogoMark, IconShield, IconSound } from './Icons.jsx';
 
 export default function Home({ settings, onChange, onStart, onOpenKinerja }) {
@@ -13,6 +14,8 @@ export default function Home({ settings, onChange, onStart, onOpenKinerja }) {
     // Daftar suara browser dimuat belakangan; periksa ulang beberapa kali.
     const check = () => setVoice(feedback.voiceStatus());
     const timers = [300, 1000, 2500].map((ms) => setTimeout(check, ms));
+    // Siapkan pembaca NIK (OCR) sejak beranda agar pemeriksaan KTP nanti langsung cepat.
+    timers.push(setTimeout(() => warmUpOcr().catch(() => {}), 1500));
     window.speechSynthesis?.addEventListener?.('voiceschanged', check);
     return () => {
       timers.forEach(clearTimeout);

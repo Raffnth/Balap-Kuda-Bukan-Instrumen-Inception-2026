@@ -63,25 +63,26 @@ export function guideText(key, level) {
 // - front: webcam laptop/kamera depan, KTP yang digerakkan di depan kamera (uji coba di laptop).
 // Kunci arah menggambarkan letak kartu di gambar (lihat engine.js), lalu diterjemahkan
 // menjadi gerakan yang benar untuk masing-masing kamera.
+// Kalimat dibuat pendek agar cepat selesai diucapkan dan pengguna segera bisa bergerak.
 const KTP_GUIDE = {
   rear: {
     cari_ktp: {
-      lengkap: 'KTP belum terlihat. Letakkan KTP di meja berwarna gelap, lalu pegang ponsel mendatar sekitar satu jengkal di atasnya.',
+      lengkap: 'KTP belum terlihat. Arahkan kamera belakang ke KTP, sekitar satu jengkal di atasnya.',
       ringkas: 'KTP belum terlihat.',
     },
-    gelap: { lengkap: 'Terlalu gelap. Nyalakan lampu atau pindah ke dekat jendela.', ringkas: 'Terlalu gelap.' },
-    gelap_lagi: { lengkap: 'Masih terlalu gelap. Cari tempat yang lebih terang.', ringkas: 'Masih gelap.' },
-    silau: { lengkap: 'Ada pantulan cahaya di KTP. Miringkan ponsel sedikit.', ringkas: 'Ada pantulan.' },
+    gelap: { lengkap: 'Terlalu gelap. Nyalakan lampu atau pindah ke tempat terang.', ringkas: 'Terlalu gelap.' },
+    gelap_lagi: { lengkap: 'Masih terlalu gelap.', ringkas: 'Masih gelap.' },
+    silau: { lengkap: 'Ada pantulan cahaya. Miringkan ponsel sedikit.', ringkas: 'Ada pantulan.' },
     kiri: { lengkap: 'Geser ponsel ke kiri.', ringkas: 'Kiri.', sedikit: 'Sedikit ke kiri.' },
     kanan: { lengkap: 'Geser ponsel ke kanan.', ringkas: 'Kanan.', sedikit: 'Sedikit ke kanan.' },
-    atas: { lengkap: 'Geser ponsel ke depan, menjauhi badan.', ringkas: 'Maju.', sedikit: 'Sedikit ke depan.' },
-    bawah: { lengkap: 'Geser ponsel ke belakang, mendekati badan.', ringkas: 'Mundur.', sedikit: 'Sedikit ke belakang.' },
-    dekatkan: { lengkap: 'Turunkan ponsel, dekatkan ke KTP.', ringkas: 'Dekatkan.', sedikit: 'Sedikit lebih dekat.' },
-    jauhkan: { lengkap: 'Angkat ponsel, jauhkan dari KTP.', ringkas: 'Jauhkan.', sedikit: 'Sedikit lebih jauh.' },
-    putar_kanan: { lengkap: 'KTP miring. Putar ponsel sedikit searah jarum jam.', ringkas: 'Putar ke kanan.' },
-    putar_kiri: { lengkap: 'KTP miring. Putar ponsel sedikit berlawanan arah jarum jam.', ringkas: 'Putar ke kiri.' },
-    putar_tegak: { lengkap: 'KTP dan ponsel belum sejajar. Putar ponsel seperempat putaran.', ringkas: 'Putar seperempat.' },
-    tahan: { lengkap: 'Posisi tepat. Tahan sebentar.', ringkas: 'Tahan.' },
+    atas: { lengkap: 'Geser ponsel ke depan.', ringkas: 'Maju.', sedikit: 'Sedikit ke depan.' },
+    bawah: { lengkap: 'Geser ponsel ke belakang.', ringkas: 'Mundur.', sedikit: 'Sedikit ke belakang.' },
+    dekatkan: { lengkap: 'Dekatkan ponsel.', ringkas: 'Dekatkan.', sedikit: 'Sedikit lebih dekat.' },
+    jauhkan: { lengkap: 'Jauhkan ponsel.', ringkas: 'Jauhkan.', sedikit: 'Sedikit lebih jauh.' },
+    putar_kanan: { lengkap: 'Putar ponsel searah jarum jam.', ringkas: 'Putar kanan.' },
+    putar_kiri: { lengkap: 'Putar ponsel berlawanan jarum jam.', ringkas: 'Putar kiri.' },
+    putar_tegak: { lengkap: 'Putar ponsel seperempat putaran.', ringkas: 'Putar seperempat.' },
+    tahan: { lengkap: 'Tahan.', ringkas: 'Tahan.' },
   },
   front: {
     cari_ktp: {
@@ -89,18 +90,18 @@ const KTP_GUIDE = {
       ringkas: 'KTP belum terlihat.',
     },
     gelap: { lengkap: 'Terlalu gelap. Nyalakan lampu atau hadapkan KTP ke cahaya.', ringkas: 'Terlalu gelap.' },
-    gelap_lagi: { lengkap: 'Masih terlalu gelap. Cari tempat yang lebih terang.', ringkas: 'Masih gelap.' },
-    silau: { lengkap: 'Ada pantulan cahaya di KTP. Miringkan KTP sedikit.', ringkas: 'Ada pantulan.' },
+    gelap_lagi: { lengkap: 'Masih terlalu gelap.', ringkas: 'Masih gelap.' },
+    silau: { lengkap: 'Ada pantulan cahaya. Miringkan KTP sedikit.', ringkas: 'Ada pantulan.' },
     kiri: { lengkap: 'Geser KTP ke kiri.', ringkas: 'Kiri.', sedikit: 'Sedikit ke kiri.' },
     kanan: { lengkap: 'Geser KTP ke kanan.', ringkas: 'Kanan.', sedikit: 'Sedikit ke kanan.' },
     atas: { lengkap: 'Turunkan KTP.', ringkas: 'Turun.', sedikit: 'Turunkan sedikit.' },
     bawah: { lengkap: 'Naikkan KTP.', ringkas: 'Naik.', sedikit: 'Naikkan sedikit.' },
     dekatkan: { lengkap: 'Dekatkan KTP ke kamera.', ringkas: 'Dekatkan.', sedikit: 'Sedikit lebih dekat.' },
     jauhkan: { lengkap: 'Jauhkan KTP dari kamera.', ringkas: 'Jauhkan.', sedikit: 'Sedikit lebih jauh.' },
-    putar_kanan: { lengkap: 'KTP miring. Putar KTP sedikit searah jarum jam.', ringkas: 'Putar ke kanan.' },
-    putar_kiri: { lengkap: 'KTP miring. Putar KTP sedikit berlawanan arah jarum jam.', ringkas: 'Putar ke kiri.' },
-    putar_tegak: { lengkap: 'KTP tegak. Putar KTP seperempat putaran hingga mendatar.', ringkas: 'Putar seperempat.' },
-    tahan: { lengkap: 'Posisi tepat. Tahan sebentar.', ringkas: 'Tahan.' },
+    putar_kanan: { lengkap: 'Putar KTP searah jarum jam.', ringkas: 'Putar kanan.' },
+    putar_kiri: { lengkap: 'Putar KTP berlawanan jarum jam.', ringkas: 'Putar kiri.' },
+    putar_tegak: { lengkap: 'Putar KTP seperempat putaran.', ringkas: 'Putar seperempat.' },
+    tahan: { lengkap: 'Tahan.', ringkas: 'Tahan.' },
   },
 };
 
@@ -126,7 +127,7 @@ const KTP_SCREEN = {
     putar_kanan: 'Putar searah jarum jam',
     putar_kiri: 'Putar berlawanan jarum jam',
     putar_tegak: 'Putar seperempat putaran',
-    tahan: 'Posisi tepat, tahan',
+    tahan: 'Posisi tepat, memotret…',
   },
   front: {
     cari_ktp: 'Tunjukkan KTP ke kamera',
@@ -141,7 +142,7 @@ const KTP_SCREEN = {
     putar_kanan: 'Putar KTP searah jarum jam',
     putar_kiri: 'Putar KTP berlawanan jarum jam',
     putar_tegak: 'Putar KTP seperempat putaran',
-    tahan: 'Posisi tepat, tahan',
+    tahan: 'Posisi tepat, memotret…',
   },
 };
 
@@ -179,13 +180,13 @@ export const EVENTS = {
     'Mode uji non visual aktif. Layar akan gelap. Ketuk di mana saja untuk mulai.',
   startKtp: {
     lengkap:
-      'Langkah pertama, foto KTP. Gunakan kamera belakang. Letakkan KTP di atas permukaan gelap, lalu arahkan ponsel ke KTP. Ikuti suara dan nada.',
+      'Langkah pertama, foto KTP. Letakkan KTP di meja berwarna gelap, lalu arahkan kamera belakang ke KTP. Foto diambil otomatis.',
     ringkas: 'Foto KTP. Arahkan kamera belakang ke KTP.',
     nada: 'Foto KTP. Ikuti nada.',
   },
   startKtpFront: {
     lengkap:
-      'Langkah pertama, foto KTP. Pegang KTP di depan kamera dengan latar belakang gelap. Ikuti suara dan nada.',
+      'Langkah pertama, foto KTP. Pegang KTP di depan kamera dengan latar belakang gelap. Foto diambil otomatis.',
     ringkas: 'Foto KTP. Tunjukkan KTP ke kamera.',
     nada: 'Foto KTP. Ikuti nada.',
   },
@@ -197,9 +198,11 @@ export const EVENTS = {
   },
   lightOk: 'Cahaya cukup.',
   lightLow: 'Cahaya kurang. Sebaiknya pindah ke tempat yang lebih terang.',
-  capturedKtp: 'Foto KTP diambil. Memeriksa kualitas.',
+  capturedKtp: 'Foto KTP diambil. Sedang diperiksa.',
   capturedSelfie: 'Swafoto diambil. Memeriksa kualitas.',
-  ktpOk: 'Foto KTP berhasil. NIK terbaca dan foto tajam.',
+  ktpOk: 'Foto KTP berhasil. NIK terbaca.',
+  torchOn: 'Senter dinyalakan.',
+  stillChecking: 'Masih memeriksa. Tunggu sebentar.',
   selfieOk: 'Swafoto berhasil. Wajah terlihat jelas.',
   retry: 'Mari ulangi.',
   helpOffer:
