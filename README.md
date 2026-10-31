@@ -6,7 +6,7 @@ Dibuat oleh tim **Balap Kuda Bukan Instrumen** untuk Hacking Day **INCEPTION 202
 
 ## Coba sekarang
 
-- Aplikasi: buka tautan Cloudflare Pages tim di Chrome Android (tidak perlu instal atau login).
+- Aplikasi: buka **https://sonarid.my.id** di Chrome Android (tidak perlu instal atau login).
 - Kartu uji pengganti KTP: buka `/kartu-uji.html` di layar lain, atau cetak seukuran KTP. Semua data pada kartu uji fiktif.
 - Untuk membuktikan proses tanpa melihat layar, aktifkan **Mode Uji Non-Visual** di beranda.
 
@@ -59,7 +59,7 @@ Agar instruksi KTP tidak keliru atau berganti-ganti:
 | Kualitas foto | Variansi Laplacian (ketajaman), kecerahan, rasio piksel silau |
 | OCR NIK | Tesseract.js (angka saja), hanya pada area NIK |
 | Suara, nada, getar | Web Speech API (id-ID), Web Audio API (StereoPanner), Vibration API |
-| Hosting | Cloudflare Pages (HTTPS) |
+| Hosting | Hosting cPanel (Apache/LiteSpeed) dengan SSL, domain sonarid.my.id. Konfigurasi server di `public/.htaccess` |
 
 ## Privasi dan keamanan
 
@@ -75,7 +75,7 @@ npm install
 npm run dev
 ```
 
-Buka `http://localhost:5173`. Kamera hanya bisa diakses melalui `localhost` atau HTTPS, jadi uji di ponsel memakai tautan Cloudflare Pages.
+Buka `http://localhost:5173`. Kamera hanya bisa diakses melalui `localhost` atau HTTPS, jadi uji di ponsel memakai https://sonarid.my.id.
 
 Build produksi:
 
@@ -84,6 +84,17 @@ npm run build
 ```
 
 Hasil build ada di folder `dist`.
+
+## Publikasi ke hosting
+
+| No | Langkah |
+|---|---|
+| 1 | `npm run build` |
+| 2 | Kompres seluruh isi folder `dist` (termasuk `.htaccess`) menjadi zip |
+| 3 | Di cPanel, buka File Manager, unggah zip ke `public_html`, lalu Extract |
+| 4 | Pastikan SSL aktif (SSL/TLS Status, lalu Run AutoSSL) dan buka https://sonarid.my.id |
+
+`public/.htaccess` memaksa HTTPS, mengatur header keamanan (kamera hanya untuk situs ini), jenis berkas, cache, dan kompresi.
 
 ## AI Use Declaration
 
