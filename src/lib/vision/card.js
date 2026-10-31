@@ -164,12 +164,19 @@ export function detectCard(imageData, prev = null) {
   const { mask, labels, stack, reached } = buffers;
 
   const candidates = [];
+  let close = null; // kartu menutupi hampir seluruh layar (ponsel terlalu dekat)
   // Kartu terang di latar gelap (kasus utama: KTP dan kartu uji), lalu kartu gelap di latar terang.
   for (const bright of [true, false]) {
     for (let i = 0; i < n; i++) mask[i] = bright ? (gray[i] > threshold ? 1 : 0) : gray[i] <= threshold ? 1 : 0;
     for (const comp of largestComponents(mask, w, h, labels, stack)) {
       if (comp.area < 0.02 * n) continue;
       const d = describe(filledMoments(comp, labels, w, h, reached, stack), w, h);
+      // Ponsel terlalu dekat: kartu terang menyentuh 3-4 tepi, menutupi sebagian besar layar, dan berisi teks.
+      // Hanya dipercaya bila sesaat sebelumnya kartu sudah terlihat besar, agar meja putih tidak dikira kartu.
+      if (bright && d.touches >= 3 && d.areaRatio >= 0.5 && d.holeRatio >= 0.01 && prev && prev.size > 0.7) {
+        if (!close || d.areaRatio > close.areaRatio) close = d;
+        continue;
+      }
       const full = isCardLike(d);
       const partial = !full && bright && isPartialCard(d);
       if (!full && !partial) continue;
@@ -178,7 +185,22 @@ export function detectCard(imageData, prev = null) {
       candidates.push({ ...d, score, bright, partial });
     }
   }
-  if (!candidates.length) return empty;
+  if (!candidates.length) {
+    if (close) {
+      return {
+        found: true,
+        tooClose: true,
+        contrast: variance,
+        ...close,
+        cx: 0.5,
+        cy: 0.5,
+        size: 1.05,
+        angle: 0,
+        bbox: { x: 0, y: 0, w: 1, h: 1 },
+      };
+    }
+    return empty;
+  }
 
   // Kandidat gelap hanya dipakai bila tidak ada kandidat terang. Ini mencegah foto pas pada kartu,
   // badan ponsel, atau bayangan terpilih sebagai "kartu" sehingga muncul instruksi yang salah.

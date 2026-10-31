@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b0f12" />
+    <title>Kartu Uji SonarID (bukan dokumen resmi)</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: #0b0f12; color: #e7eef0;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; }
+      main { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 16px; }
+      .card { width: min(92vw, 640px); aspect-ratio: 85.6 / 53.98; background: linear-gradient(135deg, #d6eef8, #bfe3f2);
+        border-radius: 3.5% / 5.5%; position: relative; color: #0b1f26; container-type: inline-size; overflow: hidden; }
+      .head { position: absolute; left: 5%; top: 4%; right: 5%; font-weight: 800; font-size: 4.2cqw; letter-spacing: .04em; }
+      .nik { position: absolute; left: 5%; top: 19%; font-family: 'Courier New', ui-monospace, monospace; font-weight: 700; font-size: 6.4cqw; letter-spacing: .02em; }
+      .rows { position: absolute; left: 5%; top: 45%; width: 62%; font-size: 3.4cqw; line-height: 1.5; font-weight: 600; }
+      .photo { position: absolute; right: 5%; top: 40%; width: 22%; height: 48%; background: #7d6a5c; border-radius: 4px; }
+      .tag { position: absolute; right: 5%; bottom: 4%; font-size: 2.6cqw; font-weight: 800; color: #9a1c1c; }
+      p { max-width: 640px; text-align: center; color: #a9bcc2; font-size: 15px; margin: 0; }
+      button { font: inherit; padding: 10px 16px; border-radius: 10px; border: 1px solid #2c3a40; background: #142026; color: #e7eef0; cursor: pointer; }
+      @media print {
+        html, body { background: #fff; }
+        p, button { display: none; }
+        .card { width: 85.6mm; border: .3mm solid #9bb; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="card" role="img" aria-label="Kartu uji SonarID berisi NIK fiktif. Bukan dokumen resmi.">
+        <div class="head">KARTU UJI SONARID</div>
+        <div class="nik">NIK : 3578012345670001</div>
+        <div class="rows">
+          Nama : CONTOH PENGGUNA<br />
+          Tempat/Tgl Lahir : SURABAYA, 01-01-2000<br />
+          Alamat : JL. CONTOH NO. 1<br />
+          Keterangan : DATA FIKTIF
+        </div>
+        <div class="photo" aria-hidden="true"></div>
+        <div class="tag">BUKAN DOKUMEN RESMI</div>
+      </div>
+      <p>
+        Kartu uji pengganti KTP untuk mencoba SonarID tanpa memakai KTP asli. Tampilkan di layar lain atau cetak
+        seukuran KTP, lalu letakkan di atas permukaan gelap. Semua data pada kartu ini fiktif.
+      </p>
+      <button type="button" onclick="window.print()">Cetak kartu uji</button>
+    </main>
+  </body>
+</html>

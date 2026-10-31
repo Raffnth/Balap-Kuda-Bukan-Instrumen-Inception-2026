@@ -38,6 +38,19 @@ export async function openCamera(facing) {
   throw lastError || new Error('Kamera tidak dapat dibuka.');
 }
 
+// Minta fokus otomatis terus-menerus bila kamera mendukung (membantu saat kartu didekatkan).
+export async function improveFocus(stream) {
+  try {
+    const track = stream && stream.getVideoTracks()[0];
+    const caps = track && track.getCapabilities ? track.getCapabilities() : null;
+    if (caps && Array.isArray(caps.focusMode) && caps.focusMode.includes('continuous')) {
+      await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+    }
+  } catch {
+    /* tidak didukung: abaikan */
+  }
+}
+
 export function stopCamera(stream) {
   if (!stream) return;
   for (const track of stream.getTracks()) {

@@ -75,7 +75,7 @@ export function nikCrops(photo, card) {
   // NIK berada di bagian atas kartu (sekitar 12-40% tinggi kartu).
   const nikArea = { x: box.x + box.w * 0.05, y: box.y + box.h * 0.1, w: box.w * 0.9, h: box.h * 0.32 };
   const nikAreaFlipped = { x: box.x + box.w * 0.05, y: box.y + box.h * 0.58, w: box.w * 0.9, h: box.h * 0.32 };
-  const scale = Math.min(3, Math.max(1, 1400 / Math.max(1, nikArea.w)));
+  const scale = Math.min(3, Math.max(1, 1100 / Math.max(1, nikArea.w)));
   return [
     { canvas: cropCanvas(src, nikArea, { scale }), upsideDown: false },
     { canvas: binarize(cropCanvas(src, nikArea, { scale })), upsideDown: false },
@@ -91,8 +91,12 @@ export async function readNik(photo, card) {
     const worker = await withTimeout(warmUpOcr(), 20000);
     // Semua potongan disiapkan sekaligus (murah); OCR berhenti begitu NIK terbaca.
     const crops = nikCrops(photo, card);
+    // Batas waktu total agar pemeriksaan di ponsel tidak terasa macet.
+    const deadline = performance.now() + 15000;
     for (const c of crops) {
-      const { data } = await withTimeout(worker.recognize(c.canvas), 10000);
+      const left = deadline - performance.now();
+      if (left < 1500) break;
+      const { data } = await withTimeout(worker.recognize(c.canvas), Math.min(8000, left));
       if (findNik(data && data.text)) return { readable: true, upsideDown: c.upsideDown };
     }
     return { readable: false, upsideDown: false };

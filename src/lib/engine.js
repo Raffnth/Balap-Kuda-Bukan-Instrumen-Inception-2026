@@ -40,6 +40,8 @@ function decideKtp(t, m, slack, base) {
   if (m.light !== undefined && m.light < t.minLight / (slack > 1 ? 1.15 : 1)) return r('gelap');
   if (m.glare !== undefined && m.glare > t.maxGlare * slack) return r('silau');
 
+  if (m.tooClose) return r('jauhkan', { err: 0.3 });
+
   const b = m.bbox || { x: 0, y: 0, w: 1, h: 1 };
   const cut = cardCut(m, t.edge / slack);
   // Terpotong di dua sisi berlawanan, terlalu besar, atau terpotong satu sisi padahal sudah hampir selebar layar.
@@ -151,7 +153,7 @@ export function decide(mode, m, prevOk = false, opts = {}) {
 // agar foto tetap diambil otomatis dan pengguna tidak terus-menerus menyesuaikan posisi.
 export function ktpReadable(m) {
   const t = TARGETS.ktp;
-  if (!m || !m.found) return false;
+  if (!m || !m.found || m.tooClose) return false;
   if (m.light !== undefined && m.light < t.minLight * 0.85) return false;
   if (m.glare !== undefined && m.glare > t.maxGlare * 2) return false;
   const cut = cardCut(m, 0.004);

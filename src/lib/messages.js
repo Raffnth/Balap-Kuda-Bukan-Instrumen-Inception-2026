@@ -104,6 +104,14 @@ const KTP_GUIDE = {
   },
 };
 
+// Kamera belakang dengan ponsel TEGAK (KTP ditempel/diletakkan tegak, misalnya di layar laptop):
+// atas-bawah gambar berarti naik-turun, bukan depan-belakang.
+const KTP_REAR_UPRIGHT = {
+  atas: { lengkap: 'Naikkan ponsel.', ringkas: 'Naik.', sedikit: 'Naikkan sedikit.' },
+  bawah: { lengkap: 'Turunkan ponsel.', ringkas: 'Turun.', sedikit: 'Turunkan sedikit.' },
+};
+const KTP_REAR_UPRIGHT_SCREEN = { atas: 'Naikkan ponsel', bawah: 'Turunkan ponsel' };
+
 const KTP_SCREEN = {
   rear: {
     cari_ktp: 'Arahkan kamera ke KTP',
@@ -143,16 +151,19 @@ export const KTP_EXTRA = {
 };
 
 // Kalimat instruksi KTP. again=true untuk pengulangan (misalnya "Masih terlalu gelap").
-export function ktpGuideText(key, level, cam, { small = false, again = false } = {}) {
+// upright=true: ponsel dipegang tegak (dari sensor orientasi), hanya berpengaruh untuk kamera belakang.
+export function ktpGuideText(key, level, cam, { small = false, again = false, upright = false } = {}) {
   if (level === 'nada') return null;
   const set = KTP_GUIDE[cam === 'front' ? 'front' : 'rear'];
-  const entry = (key === 'gelap' && again && set.gelap_lagi) || set[key];
+  const up = cam !== 'front' && upright ? KTP_REAR_UPRIGHT[key] : null;
+  const entry = up || (key === 'gelap' && again && set.gelap_lagi) || set[key];
   if (!entry) return null;
   if (small && entry.sedikit) return entry.sedikit;
   return entry[level] || entry.lengkap;
 }
 
-export function ktpScreenText(key, cam) {
+export function ktpScreenText(key, cam, upright = false) {
+  if (cam !== 'front' && upright && KTP_REAR_UPRIGHT_SCREEN[key]) return KTP_REAR_UPRIGHT_SCREEN[key];
   return KTP_SCREEN[cam === 'front' ? 'front' : 'rear'][key] || null;
 }
 

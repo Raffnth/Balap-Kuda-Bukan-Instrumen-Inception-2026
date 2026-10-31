@@ -10,21 +10,24 @@ const median = (arr) => {
 };
 
 export class MedianTracker {
-  constructor(windowMs = 500, minFoundRatio = 0.5) {
+  constructor(windowMs = 400, minFoundRatio = 0.5) {
     this.windowMs = windowMs;
     this.minFoundRatio = minFoundRatio;
     this.hist = [];
     this.last = null; // hasil tersaring terakhir yang ditemukan
+    this.lastAt = 0;
   }
 
   reset() {
     this.hist = [];
     this.last = null;
+    this.lastAt = 0;
   }
 
-  // Posisi acuan untuk detectCard (agar kandidat tidak melompat).
-  get anchor() {
-    return this.last ? { cx: this.last.cx, cy: this.last.cy } : null;
+  // Posisi dan ukuran acuan untuk detectCard (agar kandidat tidak melompat, dan untuk mengenali
+  // "terlalu dekat"). Diingat sampai 2 detik setelah kartu terakhir terlihat.
+  anchorAt(now) {
+    return this.last && now - this.lastAt < 2000 ? { cx: this.last.cx, cy: this.last.cy, size: this.last.size } : null;
   }
 
   push(m, now) {
@@ -34,7 +37,6 @@ export class MedianTracker {
     const found = all.filter((x) => x.found);
     const frameP95 = median(all.map((x) => x.frameP95).filter((v) => v !== undefined));
     if (!found.length || found.length / all.length < this.minFoundRatio) {
-      if (!found.length) this.last = null;
       return { found: false, frameP95, light: frameP95 };
     }
     const pick = (k) => median(found.map((x) => x[k]).filter((v) => typeof v === 'number'));
@@ -56,8 +58,11 @@ export class MedianTracker {
       frameP95,
       bbox: { x: x1, y: y1, w: x2 - x1, h: y2 - y1 },
       stability: found.length / all.length,
+      tooClose: found.filter((x) => x.tooClose).length * 2 >= found.length,
+      partial: !!latest.partial,
     };
     this.last = out;
+    this.lastAt = now;
     return out;
   }
 }
@@ -67,7 +72,7 @@ function pick2(found, f) {
 }
 
 export class KeyVoter {
-  constructor(windowMs = 600) {
+  constructor(windowMs = 450) {
     this.windowMs = windowMs;
     this.reset();
   }

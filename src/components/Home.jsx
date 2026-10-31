@@ -1,13 +1,30 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DETAIL_LEVELS } from '../lib/messages.js';
 import { cameraAvailable } from '../lib/camera.js';
+import { feedback } from '../lib/feedback.js';
 import { LogoMark, IconShield, IconSound } from './Icons.jsx';
 
 export default function Home({ settings, onChange, onStart, onOpenKinerja }) {
   const headingRef = useRef(null);
+  const [voice, setVoice] = useState(() => feedback.voiceStatus());
+  const [tested, setTested] = useState(false);
   useEffect(() => {
     headingRef.current?.focus();
+    // Daftar suara browser dimuat belakangan; periksa ulang beberapa kali.
+    const check = () => setVoice(feedback.voiceStatus());
+    const timers = [300, 1000, 2500].map((ms) => setTimeout(check, ms));
+    window.speechSynthesis?.addEventListener?.('voiceschanged', check);
+    return () => {
+      timers.forEach(clearTimeout);
+      window.speechSynthesis?.removeEventListener?.('voiceschanged', check);
+    };
   }, []);
+
+  const runTest = () => {
+    feedback.test();
+    setTested(true);
+    setVoice(feedback.voiceStatus());
+  };
 
   const secure = typeof window !== 'undefined' && window.isSecureContext;
   const camOk = cameraAvailable() && secure;
@@ -38,6 +55,35 @@ export default function Home({ settings, onChange, onStart, onOpenKinerja }) {
       {!camOk && (
         <p className="notice warn" role="alert">
           Kamera tidak dapat digunakan di halaman ini. Buka SonarID melalui alamat HTTPS dan izinkan akses kamera.
+        </p>
+      )}
+
+      <button type="button" className="btn btn-secondary test-av" onClick={runTest}>
+        Uji suara dan getar
+      </button>
+      {voice === 'missing' && (
+        <div className="notice warn" role="alert">
+          <p>
+            <strong>Suara bahasa Indonesia belum terpasang</strong>, sehingga petunjuk diucapkan dengan logat Inggris.
+            Pasang dulu:
+          </p>
+          <ol className="steps-list">
+            <li>Buka Setelan ponsel, lalu cari "Text-to-speech" (Keluaran teks-ke-ucapan).</li>
+            <li>Pilih mesin "Speech Services by Google", lalu ketuk ikon setelan di sebelahnya.</li>
+            <li>Pilih "Install voice data", lalu unduh "Indonesian (Indonesia)".</li>
+            <li>Tutup lalu buka kembali Chrome, kemudian muat ulang halaman ini.</li>
+          </ol>
+        </div>
+      )}
+      {tested && !feedback.vibrationSupported && (
+        <p className="notice warn" role="status">
+          Getar tidak didukung browser ini (misalnya iPhone). Panduan tetap berjalan dengan suara dan nada.
+        </p>
+      )}
+      {tested && feedback.vibrationSupported && (
+        <p className="notice" role="status">
+          Bila ponsel tidak bergetar: matikan mode senyap atau Jangan Ganggu, matikan Penghemat Baterai, dan pastikan
+          Getaran atau Umpan balik sentuh aktif di Setelan ponsel.
         </p>
       )}
 

@@ -16,6 +16,8 @@ class Feedback {
     this.lastSpokenAt = 0;
     this.speaking = false;
     this.unlocked = false;
+    this.voicesLoaded = false;
+    this.steadyBuzzed = false;
     this._pickVoice = this._pickVoice.bind(this);
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       this._pickVoice();
@@ -31,17 +33,36 @@ class Feedback {
     return typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
   }
 
+  // Pilih suara bahasa Indonesia. Android dapat melaporkan kode bahasa sebagai "id-ID", "id_ID",
+  // atau kode lama Java "in-ID"/"in_ID"; sebagian hanya bisa dikenali dari namanya ("Indonesia").
+  // Tanpa suara Indonesia, browser memakai suara bawaan (biasanya Inggris) sehingga logatnya tidak jelas.
   _pickVoice() {
     try {
       const voices = window.speechSynthesis.getVoices() || [];
+      const norm = (l) => (l || '').toLowerCase().replace('_', '-');
+      const isId = (v) => {
+        const l = norm(v.lang);
+        return l === 'id' || l === 'in' || l === 'ind' || l.startsWith('id-') || l.startsWith('in-') || /indonesia/i.test(v.name);
+      };
+      const ids = voices.filter(isId);
       this.voice =
-        voices.find((v) => v.lang === 'id-ID' && /google/i.test(v.name)) ||
-        voices.find((v) => v.lang === 'id-ID') ||
-        voices.find((v) => v.lang && v.lang.toLowerCase().startsWith('id')) ||
+        ids.find((v) => v.localService && /google/i.test(v.name)) ||
+        ids.find((v) => v.localService) ||
+        ids.find((v) => /google/i.test(v.name)) ||
+        ids[0] ||
         null;
+      this.voicesLoaded = voices.length > 0;
     } catch {
       this.voice = null;
     }
+  }
+
+  // Status suara untuk ditampilkan di beranda: 'ok' (ada suara Indonesia), 'missing', atau 'unknown'.
+  voiceStatus() {
+    if (!this.speechSupported) return 'missing';
+    if (!this.voice) this._pickVoice();
+    if (this.voice) return 'ok';
+    return this.voicesLoaded ? 'missing' : 'unknown';
   }
 
   // Harus dipanggil dari ketukan pengguna (aturan autoplay browser).
@@ -85,10 +106,18 @@ class Feedback {
     return new Promise((resolve) => {
       try {
         if (interrupt) synth.cancel();
+        if (!this.voice) this._pickVoice(); // daftar suara di Android sering baru tersedia belakangan
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'id-ID';
-        if (this.voice) u.voice = this.voice;
-        u.rate = 1.05;
+        if (this.voice) {
+          try {
+            u.voice = this.voice;
+            u.lang = (this.voice.lang || 'id-ID').replace('_', '-');
+          } catch {
+            u.lang = 'id-ID';
+          }
+        }
+        u.rate = 1;
         u.pitch = 1;
         let done = false;
         const finish = () => {
@@ -124,11 +153,11 @@ class Feedback {
   }
 
   vibrate(pattern) {
-    if (!this.vibrationSupported) return;
+    if (!this.vibrationSupported) return false;
     try {
-      navigator.vibrate(pattern);
+      return navigator.vibrate(pattern);
     } catch {
-      /* abaikan */
+      return false;
     }
   }
 
@@ -163,6 +192,7 @@ class Feedback {
   // distErr: 0 (jarak ideal) .. 1 (jauh dari ideal) -> laju ketukan (melambat saat mendekati ideal)
   setGuide({ moveX = 0, moveY = 0, distErr = 0 }) {
     this.stopSteady();
+    this.steadyBuzzed = false;
     this.guide = {
       pan: clamp(moveX, -1, 1),
       pitch: 660 + clamp(moveY, -1, 1) * 260,
@@ -177,6 +207,9 @@ class Feedback {
       return;
     }
     this._blip(this.guide.pitch, this.guide.pan);
+    // Getar pendek mengikuti ketukan nada (laju makin cepat saat jarak makin jauh dari ideal),
+    // agar arahan tetap terasa walaupun suara ponsel kecil atau lingkungan bising.
+    this.vibrate(25);
     this.beepTimer = setTimeout(() => this._scheduleBeep(), this.guide.interval);
   }
 
@@ -189,6 +222,11 @@ class Feedback {
   // Nada jernih dan stabil saat posisi hampir tepat.
   startSteady() {
     this.stopGuide();
+    // Getar ganda sekali saat posisi tepat: tanda "tahan".
+    if (!this.steadyBuzzed) {
+      this.steadyBuzzed = true;
+      this.vibrate([70, 50, 70]);
+    }
     const ctx = this.ctx;
     if (!ctx || ctx.state !== 'running' || this.steady) return;
     const osc = ctx.createOscillator();
@@ -224,6 +262,16 @@ class Feedback {
   stopTones() {
     this.stopGuide();
     this.stopSteady();
+    this.steadyBuzzed = false;
+  }
+
+  // Uji suara dan getar dari beranda (dipanggil dari ketukan pengguna).
+  test() {
+    this.unlock();
+    this.vibrate([200, 100, 200]);
+    this._blip(660, -0.8, 0.12, 0.35);
+    setTimeout(() => this._blip(880, 0.8, 0.12, 0.35), 220);
+    return this.say('Uji suara SonarID. Jika ponsel bergetar dan suara ini terdengar jelas, semuanya siap.', { interrupt: true });
   }
 
   // Bunyi rana kamera + getar singkat saat foto diambil.

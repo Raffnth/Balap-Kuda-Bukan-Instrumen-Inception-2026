@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { openCamera, stopCamera, waitForVideo } from '../lib/camera.js';
+import { openCamera, stopCamera, waitForVideo, improveFocus } from '../lib/camera.js';
 import {
   grabFrame,
   toGray,
@@ -48,8 +48,12 @@ const OPPOSITE = {
 };
 const DIRECTIONAL = new Set(['kiri', 'kanan', 'atas', 'bawah', 'dekatkan', 'jauhkan', 'putar_kanan', 'putar_kiri']);
 // Berapa lama (ms) instruksi harus konsisten sebelum diucapkan.
-const STABLE_MS = { cari_ktp: 900, gelap: 1200, silau: 700, tahan: 300 };
-const STABLE_DEFAULT = 450;
+const STABLE_MS = { cari_ktp: 700, gelap: 1000, silau: 500, tahan: 200 };
+const STABLE_DEFAULT = 300;
+// Bila layar sudah menyatakan "Posisi tepat" selama ini (ms) dan kartu terlihat, foto pasti diambil.
+const TAHAN_FORCE_MS = 1500;
+// Mode diagnosis: tambahkan ?debug=1 pada alamat untuk melihat angka deteksi di bawah kamera.
+const DEBUG = typeof window !== 'undefined' && /[?&]debug=1/.test(window.location.search);
 
 // Perkiraan awal jenis kamera sebelum kamera dibuka (untuk kalimat pembuka).
 function guessKtpCam() {
@@ -215,6 +219,9 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
   const [errorMsg, setErrorMsg] = useState('');
   const [runId, setRunId] = useState(0);
   const [cam, setCam] = useState(guessKtpCam);
+  const [box, setBox] = useState(null); // kotak kartu yang terdeteksi (koordinat tampilan)
+  const [debug, setDebug] = useState('');
+  const [upright, setUpright] = useState(false); // ponsel dipegang tegak (kamera belakang)
   const level = settings.detail;
   const isKtp = mode === 'ktp';
 
@@ -229,8 +236,8 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
     // Jalur cadangan KTP: bila kartu sudah cukup terlihat untuk dibaca (walau belum ideal)
     // selama sekitar 2,5 detik, foto tetap diambil otomatis.
     const fallback = new Stabilizer(2500, 2500, 0.3, 1500);
-    const tracker = new MedianTracker(500, 0.5); // KTP: median beberapa frame terakhir
-    const voter = new KeyVoter(600); // KTP: instruksi yang paling konsisten
+    const tracker = new MedianTracker(400, 0.5); // KTP: median beberapa frame terakhir
+    const voter = new KeyVoter(450); // KTP: instruksi yang paling konsisten
     let ktpCam = guessKtpCam();
     // Catatan ucapan instruksi KTP.
     const talk = { key: null, at: 0, err: null, repeats: 0, dir: null, dirAt: 0 };
@@ -248,6 +255,7 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
       lastUi: 0,
       lastLatUi: 0,
       tilt: undefined,
+      beta: undefined,
       smooth: null,
       lastFoundAt: 0,
       crop: null,
@@ -259,7 +267,10 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
     };
     const onOrient = (e) => {
       if (typeof e.gamma === 'number') st.tilt = e.gamma;
+      if (typeof e.beta === 'number') st.beta = e.beta;
     };
+    // Ponsel tegak bila kemiringan depan-belakang lebih dari 50 derajat (mendatar = sekitar 0).
+    const isUpright = () => typeof st.beta === 'number' && Math.abs(st.beta) > 50 && Math.abs(st.beta) < 130;
 
     const speakGuide = (key, now, isOk) => {
       let text = guideText(key, level);
@@ -321,14 +332,14 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
       const stableFor = now - vote.since;
       // Kelewatan: instruksi berlawanan dengan instruksi arah terakhir yang diucapkan dalam 3 detik terakhir.
       const opposite = !!OPPOSITE[key] && OPPOSITE[key] === talk.dir && now - talk.dirAt < 3000;
-      const need = (STABLE_MS[key] ?? STABLE_DEFAULT) + (opposite ? 450 : 0);
+      const need = (STABLE_MS[key] ?? STABLE_DEFAULT) + (opposite ? 300 : 0);
       if (stableFor < need) return;
       const since = now - talk.at;
       const err = vote.key === d.key ? d.err : null;
       const small = vote.key === d.key && !!d.small;
       if (key !== talk.key) {
-        if (feedback.speaking && since < 900) return; // biarkan kalimat sebelumnya selesai sebentar
-        let text = ktpGuideText(key, lvl, ktpCam, { small });
+        if (feedback.speaking && since < 600) return; // biarkan kalimat sebelumnya terdengar sebentar
+        let text = ktpGuideText(key, lvl, ktpCam, { small, upright: isUpright() });
         if (!text) return;
         if (opposite) text = `${extraText('kelewatan', lvl)} ${text}`;
         feedback.say(text, { interrupt: true });
@@ -343,13 +354,13 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
         return;
       }
       if (key === 'tahan') return;
-      const gap = key === 'cari_ktp' ? 6000 : 3500;
+      const gap = key === 'cari_ktp' ? 6000 : 3000;
       if (since < gap || feedback.speaking) return;
       let text;
       if (DIRECTIONAL.has(key) && err != null && talk.err != null && err < talk.err * 0.8) {
         text = extraText('terus', lvl);
       } else {
-        text = ktpGuideText(key, lvl, ktpCam, { small, again: true });
+        text = ktpGuideText(key, lvl, ktpCam, { small, again: true, upright: isUpright() });
       }
       if (!text) return;
       feedback.say(text);
@@ -440,7 +451,7 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
       const gray = toGray(img.data, W, H);
       let m;
       if (isKtp) {
-        const raw = detectCard(img, tracker.anchor);
+        const raw = detectCard(img, tracker.anchorAt(now));
         if (raw.found && crop) raw.px = raw.size * crop.sw; // lebar kartu dalam piksel kamera asli
         // Cahaya dinilai pada KARTU bila terlihat; bila belum, pada bagian paling terang layar (persentil 95),
         // sehingga latar gelap yang memang dianjurkan tidak dianggap "terlalu gelap".
@@ -490,10 +501,13 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
       else if (d.ok) feedback.startSteady();
       else feedback.setGuide(d);
       let shownKey = d.key;
+      let forceCapture = false;
       if (isKtp) {
         const vote = voter.push(d.key, now);
         speakKtp(vote, d, now);
         shownKey = vote.key; // teks di layar mengikuti instruksi yang konsisten, bukan per frame
+        // Pengaman: status "Posisi tepat" yang bertahan berarti kartu sudah layak; jangan menunggu lebih lama.
+        forceCapture = vote.key === 'tahan' && m.found && now - vote.since >= TAHAN_FORCE_MS;
       } else {
         speakGuide(d.key, now, d.ok);
       }
@@ -507,12 +521,25 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
         setInstr(shownKey);
         setOk(d.ok);
         setProgress(prog);
+        if (isKtp) setUpright(isUpright());
+        setBox(isKtp && m.found && m.bbox && !m.tooClose ? { ...m.bbox, ok: d.ok } : null);
+        if (DEBUG) {
+          const f = (v, n = 2) => (typeof v === 'number' ? v.toFixed(n) : '-');
+          setDebug(
+            `kamera=${isKtp ? ktpCam : 'depan'} suara=${feedback.voice ? feedback.voice.lang : 'TIDAK ADA id'} ` +
+              `getar=${feedback.vibrationSupported ? 'ya' : 'tidak'} kunci=${d.key}/${shownKey} ` +
+              `ditemukan=${m.found ? 'ya' : 'tidak'}${m.partial ? '(sebagian)' : ''}${m.tooClose ? '(terlalu dekat)' : ''} ` +
+              `cx=${f(m.cx)} cy=${f(m.cy)} lebar=${f(m.size)} px=${f(m.px, 0)} sudut=${f(m.angle, 0)} ` +
+              `cahaya=${f(m.light, 0)} p95=${f(m.frameP95, 0)} silau=${f(m.glare, 3)} progres=${f(prog)} ` +
+              `video=${video.videoWidth}x${video.videoHeight} ${Math.round(lat)}ms`,
+          );
+        }
       }
       if (now - st.lastLatUi > 1000) {
         st.lastLatUi = now;
         setLatency(st.latSum / st.latN);
       }
-      if (prog >= 1) capture(m);
+      if (prog >= 1 || forceCapture) capture(m);
     }
 
     async function start() {
@@ -532,6 +559,7 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
         if (isKtp) {
           ktpCam = detectKtpCam(stream, ktpCam);
           setCam(ktpCam);
+          improveFocus(stream);
         }
         const video = videoRef.current;
         video.srcObject = stream;
@@ -595,7 +623,7 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
 
   const repeatInstruction = () => {
     const lvl = level === 'nada' ? 'ringkas' : level;
-    const text = instr ? (isKtp ? ktpGuideText(instr, lvl, cam) : guideText(instr, lvl)) : null;
+    const text = instr ? (isKtp ? ktpGuideText(instr, lvl, cam, { upright }) : guideText(instr, lvl)) : null;
     const intro = isKtp ? (cam === 'front' ? 'startKtpFront' : 'startKtp') : 'startSelfie';
     feedback.say(text || eventText(intro, level), { interrupt: true });
   };
@@ -611,7 +639,7 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
           ? 'Memeriksa kualitas foto…'
           : phase === 'error'
             ? 'Kamera bermasalah'
-            : (isKtp ? ktpScreenText(instr, cam) : SCREEN_TEXT[instr]) || 'Mengarahkan…';
+            : (isKtp ? ktpScreenText(instr, cam, upright) : SCREEN_TEXT[instr]) || 'Mengarahkan…';
   const tone = phase === 'checking' ? 'busy' : ok ? 'ok' : instr && !instr.startsWith('cari') ? 'adjust' : 'search';
 
   return (
@@ -640,6 +668,19 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
           aria-hidden="true"
         />
         <div className={`target ${isKtp ? 'target-card' : 'target-face'}`} aria-hidden="true" />
+        {/* Kotak kartu yang terdeteksi: membantu pendamping/penguji melihat apa yang dibaca sistem. */}
+        {phase === 'guiding' && box && (
+          <div
+            className={`detect-box ${box.ok ? 'ok' : ''}`}
+            aria-hidden="true"
+            style={{
+              left: `${(cam === 'front' ? 1 - box.x - box.w : box.x) * 100}%`,
+              top: `${box.y * 100}%`,
+              width: `${box.w * 100}%`,
+              height: `${box.h * 100}%`,
+            }}
+          />
+        )}
         {phase === 'guiding' && progress > 0 && (
           <div className="hold" aria-hidden="true">
             <span style={{ transform: `scaleX(${progress})` }} />
@@ -650,6 +691,7 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
       <p className={`instruction tone-${tone}`} aria-live="off">
         {statusText}
       </p>
+      {DEBUG && debug && <p className="debug-line">{debug}</p>}
 
       {phase === 'error' ? (
         <div className="stack">
