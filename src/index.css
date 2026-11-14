@@ -495,6 +495,35 @@ fieldset legend {
   align-self: center;
 }
 
+/* Panah arah: arti yang sama dengan kalimat yang sedang diucapkan (untuk pendamping dan low vision). */
+.dir-arrow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34%;
+  max-width: 150px;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  fill: rgba(255, 255, 255, 0.92);
+  stroke: rgba(255, 255, 255, 0.92);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+  animation: arrow-pop 0.18s ease-out;
+}
+
+@keyframes arrow-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+}
+
+.instr-note {
+  color: var(--teal-700);
+  font-weight: 650;
+  white-space: pre;
+}
+
 /* ---------- hasil ---------- */
 .result-card {
   display: flex;
@@ -611,6 +640,8 @@ fieldset legend {
   font-size: 0.78rem;
   line-height: 1.45;
   overflow-x: auto;
+  white-space: pre-wrap; /* sidik SHA-256 panjang tetap terbaca di layar ponsel */
+  overflow-wrap: anywhere;
   margin: 10px 0;
 }
 
@@ -743,6 +774,7 @@ th {
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+    animation: none !important;
   }
 }
 

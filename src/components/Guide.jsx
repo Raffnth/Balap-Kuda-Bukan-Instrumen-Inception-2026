@@ -23,7 +23,11 @@ import {
   ktpGuideText,
   ktpScreenText,
   extraText,
+  KTP_EXTRA_SCREEN,
+  ADVICE,
 } from '../lib/messages.js';
+import { sha256OfDataUrl } from '../lib/integrity.js';
+import { arrowFor } from '../lib/direction.js';
 import { recordLatency, recordStep } from '../lib/metrics.js';
 import { IconBack } from './Icons.jsx';
 
@@ -32,10 +36,10 @@ const ANALYSIS_W = 192; // lebar frame untuk analisis cepat
 const MAX_ATTEMPTS = 3;
 const BURST = 3; // jumlah frame yang diambil saat memotret; dipilih yang paling tajam
 const BURST_GAP = 70; // ms antarframe
-// KTP: foto diambil setelah kartu layak selama sekitar 0,4 detik (cukup untuk memastikan bukan kebetulan,
+// KTP: foto diambil setelah kartu layak selama sekitar 0,3 detik (cukup untuk memastikan bukan kebetulan,
 // cukup singkat agar terasa langsung). Kartu yang sedang bergerak cepat (lebih dari 0,9 lebar layar per
 // detik) ditunggu sampai melambat agar foto tidak kabur.
-const KTP_HOLD_MS = 400;
+const KTP_HOLD_MS = 300;
 const KTP_MAX_SPEED = 0.9;
 const RETRY_COOLDOWN_MS = 1500; // jeda setelah foto gagal agar pengguna sempat memperbaiki posisi
 const TORCH_AFTER_MS = 1500; // senter dinyalakan bila ruangan tetap gelap selama ini (kamera belakang)
@@ -60,6 +64,10 @@ const STABLE_MS = { cari_ktp: 600, gelap: 900, silau: 400, tahan: 700 };
 const STABLE_DEFAULT = 200;
 // Bila layar sudah menyatakan "Posisi tepat" selama ini (ms) dan kartu terlihat, foto pasti diambil.
 const TAHAN_FORCE_MS = 900;
+// Jeda minimum sebelum instruksi baru boleh memotong kalimat yang sedang diucapkan (ms).
+// Lebih pendek = suara lebih cepat mengikuti gerakan; teks layar selalu mengikuti kalimat yang diucapkan.
+const KTP_SPEAK_GAP_MS = 250;
+const SELFIE_SPEAK_GAP_MS = 700;
 // Mode diagnosis: tambahkan ?debug=1 pada alamat untuk melihat angka deteksi di bawah kamera.
 const DEBUG = typeof window !== 'undefined' && /[?&]debug=1/.test(window.location.search);
 
@@ -110,6 +118,45 @@ function rectOf(bbox, W, H) {
   return { x: bbox.x * W, y: bbox.y * H, w: bbox.w * W, h: bbox.h * H };
 }
 
+function DirArrow({ dir }) {
+  if (!dir) return null;
+  const rot = { right: 0, down: 90, left: 180, up: 270 }[dir];
+  let shape;
+  if (rot !== undefined) {
+    shape = (
+      <g transform={`rotate(${rot} 50 50)`}>
+        <path d="M18 42h40V26l26 24-26 24V58H18z" />
+      </g>
+    );
+  } else if (dir === 'in' || dir === 'out') {
+    // Empat panah ke dalam (dekatkan: kartu tampak membesar) atau ke luar (jauhkan).
+    const inward = dir === 'in';
+    shape = (
+      <g>
+        {[0, 90, 180, 270].map((a) => (
+          <g key={a} transform={`rotate(${a} 50 50)`}>
+            <path d={inward ? 'M50 30l-10-12h20z' : 'M50 4l-10 12h20z'} />
+          </g>
+        ))}
+        <rect x="32" y="38" width="36" height="24" rx="3" fill="none" strokeWidth="5" />
+      </g>
+    );
+  } else {
+    const cw = dir === 'cw';
+    shape = (
+      <g transform={cw ? undefined : 'translate(100 0) scale(-1 1)'}>
+        <path d="M50 18a32 32 0 1 1-30 21" fill="none" strokeWidth="9" strokeLinecap="round" />
+        <path d="M8 34l13 13 10-17z" />
+      </g>
+    );
+  }
+  return (
+    <svg className={`dir-arrow dir-${dir}`} viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+      {shape}
+    </svg>
+  );
+}
+
 function regionStats(photo, bbox, maxW) {
   const safe = bbox && bbox.w > 0 && bbox.h > 0 ? bbox : { x: 0, y: 0, w: 1, h: 1 };
   const rect = rectOf(safe, photo.width, photo.height);
@@ -132,7 +179,6 @@ function regionStats(photo, bbox, maxW) {
 // - bila OCR tidak tersedia (misalnya tanpa koneksi), dipakai ambang ketajaman, cahaya, dan pantulan.
 async function checkKtp(photo, m, cam) {
   const front = cam === 'front';
-  const mover = front ? 'KTP' : 'ponsel';
   const s = regionStats(photo, m.bbox, 800);
   const ocr = await readNik(photo, m);
   const nikSkipped = !!ocr.error;
@@ -191,28 +237,30 @@ async function checkKtp(photo, m, cam) {
   let advice = '';
   if (!ok) {
     const size = m.size || 0;
+    // Semua saran berasal dari messages.js agar setiap kalimat punya rekaman suara.
     if (ocr.upsideDown) {
       cause = 'upside';
-      advice = 'KTP terbalik. Putar KTP setengah putaran.';
+      advice = ADVICE.upside;
     } else if (!glareOk || s.saturated > 0.25) {
       cause = 'glare';
-      advice = `Ada pantulan cahaya di KTP. Miringkan ${mover} sedikit.`;
+      advice = front ? ADVICE.glareFront : ADVICE.glareRear;
     } else if (dark) {
       cause = 'dark';
-      advice = 'Foto terlalu gelap. Nyalakan lampu atau pindah ke tempat terang.';
+      advice = ADVICE.dark;
     } else if (bright) {
       cause = 'bright';
-      advice = 'Foto terlalu terang. Hindari cahaya langsung ke KTP.';
+      advice = ADVICE.bright;
     } else if (!sharpOk) {
       cause = 'blur';
       // Terlalu dekat membuat kamera sulit fokus; selain itu buram biasanya karena guncangan.
-      advice = size > 0.7 ? `Gambar kurang fokus. Jauhkan ${mover} sedikit.` : `Foto buram. Tahan ${mover} lebih diam.`;
+      if (size > 0.7) advice = front ? ADVICE.focusFront : ADVICE.focusRear;
+      else advice = front ? ADVICE.blurFront : ADVICE.blurRear;
     } else if (size < 0.55) {
       cause = 'small';
-      advice = front ? 'NIK belum terbaca. Dekatkan KTP ke kamera.' : 'NIK belum terbaca. Dekatkan ponsel sedikit.';
+      advice = front ? ADVICE.smallFront : ADVICE.smallRear;
     } else {
       cause = 'unread';
-      advice = `NIK belum terbaca. Tahan ${mover} lebih diam.`;
+      advice = front ? ADVICE.unreadFront : ADVICE.unreadRear;
     }
   }
   return { ok, checks, cause, advice };
@@ -221,34 +269,34 @@ async function checkKtp(photo, m, cam) {
 function checkSelfie(photo, m, decision) {
   const s = regionStats(photo, m.bbox, 480);
   const checks = [
-    { id: 'face', label: 'Wajah terdeteksi', ok: !!m.found, detail: 'Satu wajah terlihat', advice: 'Wajah tidak terlihat.' },
+    { id: 'face', label: 'Wajah terdeteksi', ok: !!m.found, detail: 'Satu wajah terlihat', advice: ADVICE.selfieFace },
     {
       id: 'pos',
       label: 'Posisi wajah',
       ok: !!decision && decision.ok,
       detail: decision && decision.ok ? 'Posisi tepat' : 'Posisi belum tepat',
-      advice: 'Posisi wajah belum tepat.',
+      advice: ADVICE.selfiePos,
     },
     {
       id: 'sharp',
       label: 'Ketajaman',
       ok: s.sharp >= 8,
       detail: s.sharp >= 8 ? 'Wajah tajam' : 'Wajah buram',
-      advice: 'Foto buram. Tahan ponsel lebih diam.',
+      advice: ADVICE.selfieBlur,
     },
     {
       id: 'light',
       label: 'Cahaya',
       ok: s.light >= 60 && s.light <= 235,
       detail: s.light < 60 ? 'Terlalu gelap' : s.light > 235 ? 'Terlalu terang' : 'Cahaya cukup',
-      advice: s.light < 60 ? 'Wajah terlalu gelap. Hadapkan wajah ke cahaya.' : 'Wajah terlalu terang.',
+      advice: s.light < 60 ? ADVICE.selfieDark : ADVICE.selfieBright,
     },
     {
       id: 'yaw',
       label: 'Arah wajah',
       ok: Math.abs(m.yaw) <= 0.25,
       detail: Math.abs(m.yaw) <= 0.25 ? 'Menghadap lurus' : 'Wajah menoleh',
-      advice: 'Hadapkan wajah lurus ke kamera.',
+      advice: ADVICE.selfieYaw,
     },
   ];
   return { ok: checks.every((c) => c.ok), checks };
@@ -262,6 +310,7 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
 
   const [phase, setPhase] = useState('loading'); // loading | intro | guiding | checking | error
   const [instr, setInstr] = useState(null);
+  const [note, setNote] = useState(null); // "Kelewatan" atau "Bagus, terus" yang sedang diucapkan
   const [ok, setOk] = useState(false);
   const [progress, setProgress] = useState(0);
   const [latency, setLatency] = useState(null);
@@ -287,7 +336,7 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
     const voter = new KeyVoter(300); // KTP: instruksi yang paling konsisten
     let ktpCam = guessKtpCam();
     // Catatan ucapan instruksi KTP.
-    const talk = { key: null, at: 0, err: null, repeats: 0, dir: null, dirAt: 0 };
+    const talk = { key: null, at: 0, err: null, repeats: 0, dir: null, dirAt: 0, note: null };
     const st = {
       phase: 'loading',
       lastKey: null,
@@ -317,6 +366,8 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
       torchOn: false,
       latAvg: 0,
       ktpInterval: FRAME_INTERVAL,
+      spokenKey: null, // swafoto: instruksi terakhir yang diucapkan
+      shown: undefined, // teks yang sedang tampil (kunci|catatan), agar layar diperbarui seketika
     };
     const setP = (p) => {
       st.phase = p;
@@ -339,10 +390,11 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
       }
       const since = now - st.lastSayAt;
       if (key !== st.lastKey) {
-        if (since > 1200) {
+        if (since > SELFIE_SPEAK_GAP_MS) {
           feedback.say(text, { interrupt: true });
           st.lastSayAt = now;
           st.lastKey = key;
+          st.spokenKey = key;
         }
       } else if (!isOk && since > (searching ? 6000 : 3500)) {
         feedback.say(text);
@@ -395,12 +447,13 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
       const err = vote.key === d.key ? d.err : null;
       const small = vote.key === d.key && !!d.small;
       if (key !== talk.key) {
-        if (feedback.speaking && since < 600) return; // biarkan kalimat sebelumnya terdengar sebentar
+        if (feedback.speaking && since < KTP_SPEAK_GAP_MS) return; // biarkan kalimat sebelumnya terdengar sebentar
         let text = ktpGuideText(key, lvl, ktpCam, { small, upright: isUpright() });
         if (!text) return;
         if (opposite) text = `${extraText('kelewatan', lvl)} ${text}`;
         feedback.say(text, { interrupt: true, rate: DIRECTIONAL.has(key) || key === 'tahan' ? 1.1 : 1 });
         talk.key = key;
+        talk.note = opposite ? 'kelewatan' : null;
         talk.at = now;
         talk.err = err;
         talk.repeats = 0;
@@ -414,14 +467,17 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
       const gap = key === 'cari_ktp' ? 6000 : 3000;
       if (since < gap || feedback.speaking) return;
       let text;
+      let noteKey = null;
       // "Bagus, terus" hanya bila benar-benar membaik (bukan sekadar getaran tangan).
       if (DIRECTIONAL.has(key) && err != null && talk.err != null && err < talk.err * 0.8 && talk.err - err > 0.03) {
         text = extraText('terus', lvl);
+        noteKey = 'terus';
       } else {
         text = ktpGuideText(key, lvl, ktpCam, { small, again: true, upright: isUpright() });
       }
       if (!text) return;
       feedback.say(text, { rate: DIRECTIONAL.has(key) ? 1.1 : 1 });
+      talk.note = noteKey;
       talk.at = now;
       talk.err = err;
       talk.repeats += 1;
@@ -460,10 +516,16 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
         feedback.success();
         await feedback.say(eventText(isKtp ? 'ktpOk' : 'selfieOk', level), { interrupt: true });
         if (cancelled) return;
+        const dataUrl = photo.toDataURL('image/jpeg', 0.9);
+        // Sidik SHA-256 foto saat lulus pemeriksaan: penyedia dapat memastikan foto tidak diubah sesudahnya.
+        const sha256 = await sha256OfDataUrl(dataUrl);
+        if (cancelled) return;
         callbacks.current.onDone({
-          dataUrl: photo.toDataURL('image/jpeg', 0.9),
+          dataUrl,
           checks: result.checks,
           attempts: st.attempts,
+          sha256,
+          at: new Date().toISOString(),
         });
         return;
       }
@@ -491,7 +553,9 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
       voter.reset();
       talk.key = null;
       talk.dir = null;
+      talk.note = null;
       talk.at = performance.now();
+      st.spokenKey = null;
       setP('guiding');
     }
 
@@ -576,12 +640,23 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
       if (!st.introDone || !d.found) feedback.stopTones();
       else if (d.ok) feedback.startSteady();
       else feedback.setGuide(d);
+      // Teks di layar = instruksi yang TERAKHIR DIUCAPKAN, sehingga tulisan dan suara selalu sama.
+      // Pengecualian: "Posisi tepat" langsung tampil (suaranya adalah nada stabil dan getar ganda),
+      // dan pada level "nada saja" (arah tidak diucapkan) teks mengikuti instruksi yang konsisten.
       let shownKey = d.key;
+      let shownNote = null;
       let forceCapture = false;
       if (isKtp) {
         const vote = voter.push(d.key, now);
         if (st.introDone) speakKtp(vote, d, now);
-        shownKey = vote.key; // teks di layar mengikuti instruksi yang konsisten, bukan per frame
+        if (d.ok) shownKey = 'tahan';
+        else if (level === 'nada') shownKey = vote.key;
+        else if (!st.introDone) shownKey = 'cari_ktp'; // sama dengan kalimat pembuka yang sedang diucapkan
+        else if (talk.key && talk.key !== 'tahan') {
+          shownKey = talk.key;
+          shownNote = talk.note;
+        } else if (talk.key === 'tahan') shownKey = vote.key;
+        else shownKey = 'cari_ktp'; // belum ada arah yang diucapkan: tulisan netral, bukan arah yang belum terdengar
         // Pengaman: status "Posisi tepat" yang bertahan berarti kartu sudah layak; jangan menunggu lebih lama.
         forceCapture = vote.key === 'tahan' && m.found && st.speed < KTP_MAX_SPEED && now - vote.since >= TAHAN_FORCE_MS;
         // Ruangan tetap gelap: nyalakan senter kamera belakang bila tersedia.
@@ -598,6 +673,15 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
         }
       } else {
         speakGuide(d.key, now, d.ok);
+        if (d.ok) shownKey = 'tahan';
+        else if (level !== 'nada' && st.spokenKey) shownKey = st.spokenKey;
+      }
+      // Perbarui teks seketika saat kalimat berganti (tidak menunggu jadwal pembaruan layar).
+      const shownId = `${shownKey}|${shownNote || ''}`;
+      if (shownId !== st.shown) {
+        st.shown = shownId;
+        setInstr(shownKey);
+        setNote(shownNote);
       }
 
       const lat = performance.now() - t0;
@@ -611,7 +695,6 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
       }
       if (now - st.lastUi > 120) {
         st.lastUi = now;
-        setInstr(shownKey);
         setOk(d.ok);
         setProgress(prog);
         if (isKtp) setUpright(isUpright());
@@ -754,6 +837,7 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
             ? 'Kamera bermasalah'
             : (isKtp ? ktpScreenText(instr, cam, upright) : SCREEN_TEXT[instr]) || 'Mengarahkan…';
   const tone = phase === 'checking' ? 'busy' : ok ? 'ok' : instr && !instr.startsWith('cari') ? 'adjust' : 'search';
+  const arrow = phase === 'guiding' && !ok && !settings.nonVisual ? arrowFor(instr, isKtp, cam) : null;
 
   return (
     <main className={`screen guide ${isKtp ? 'mode-ktp' : 'mode-selfie'}`} aria-labelledby="guide-title">
@@ -794,6 +878,7 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
             }}
           />
         )}
+        <DirArrow dir={arrow} />
         {phase === 'guiding' && progress > 0 && (
           <div className="hold" aria-hidden="true">
             <span style={{ transform: `scaleX(${progress})` }} />
@@ -802,6 +887,7 @@ export default function Guide({ mode, settings, session, onDone, onHelp, onExit 
       </div>
 
       <p className={`instruction tone-${tone}`} aria-live="off">
+        {phase === 'guiding' && note && <span className="instr-note">{KTP_EXTRA_SCREEN[note]} · </span>}
         {statusText}
       </p>
       {DEBUG && debug && <p className="debug-line">{debug}</p>}
