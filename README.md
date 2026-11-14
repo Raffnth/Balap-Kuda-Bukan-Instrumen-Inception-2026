@@ -83,9 +83,9 @@ Rincian di [SECURITY.md](SECURITY.md); hasil pengujian di [docs/EVALUASI.md](doc
 
 | Anggota | Peran | Kontribusi |
 |---|---|---|
-| Raffi Anantha Setiawan | Ketua Tim | Memimpin tim dan menjalankan aspek teknis perlombaan |
-| Rizky Zakariya | Anggota 1 | Riset dan pengembangan aplikasi |
-| Ni Made Dwi Armalayanti | Anggota 2 | Pitch deck dan video demo |
+| Raffi Anantha Setiawan | Ketua Tim | Memimpin tim dan melakukan deployment |
+| Rizky Zakariya | Anggota Tim 1 | Riset, pengembangan sistem dan teknologi, serta seluruh aspek teknis |
+| Ni Made Dwi Armalayanti | Anggota Tim 2 | Pembuatan pitch deck dan video demo |
 
 ## AI Use Declaration
 
