@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { feedback } from '../lib/feedback.js';
-import { eventText } from '../lib/messages.js';
+import { eventText, PHRASES, PROVIDER_NAME } from '../lib/messages.js';
 import { useConfirmTap } from '../lib/useConfirmTap.js';
-import { PROVIDER_NAME } from './Result.jsx';
 import { IconCheck } from './Icons.jsx';
 
 // Simulasi aplikasi penyedia eKYC (merek fiktif) yang memasang komponen SonarID.
@@ -14,7 +13,7 @@ export default function Provider({ settings, ktp, selfie, onFinish }) {
   useEffect(() => {
     headingRef.current?.focus();
     feedback.success();
-    const how = settings.nonVisual ? ' Ketuk layar untuk kembali ke awal.' : '';
+    const how = settings.nonVisual ? ` ${PHRASES.providerHowNv}` : '';
     feedback.say(`${eventText('sent', settings.detail)}${how}`, { interrupt: true });
     return () => feedback.stopSpeech();
   }, [settings.detail, settings.nonVisual]);
@@ -24,10 +23,17 @@ export default function Provider({ settings, ktp, selfie, onFinish }) {
     ktp: Object.fromEntries(ktp.checks.map((c) => [c.id, c.ok ? 'lulus' : 'gagal'])),
     swafoto: Object.fromEntries(selfie.checks.map((c) => [c.id, c.ok ? 'lulus' : 'gagal'])),
     percobaan: { ktp: ktp.attempts, swafoto: selfie.attempts },
+    // Sidik foto saat lulus Quality Check: penyedia mencocokkan dengan foto yang diterima.
+    integritas: {
+      algoritma: 'SHA-256',
+      ktp: ktp.sha256 || 'tidak tersedia',
+      swafoto: selfie.sha256 || 'tidak tersedia',
+    },
+    waktu: { ktp: ktp.at || null, swafoto: selfie.at || null },
     catatan: 'Keputusan verifikasi akhir tetap milik penyedia.',
   };
 
-  const finish = confirmTap('finish', 'Kembali ke awal?', onFinish);
+  const finish = confirmTap('finish', PHRASES.confirmFinish, onFinish);
 
   return (
     <main className={`screen provider ${settings.nonVisual ? 'nv-layout' : ''}`} aria-labelledby="provider-title">
@@ -49,6 +55,10 @@ export default function Provider({ settings, ktp, selfie, onFinish }) {
         <pre className="report" aria-label="Laporan kualitas dalam format data">
           {JSON.stringify(report, null, 2)}
         </pre>
+        <p className="muted">
+          Sidik SHA-256 dihitung di ponsel saat foto lulus pemeriksaan. Penyedia menghitung ulang sidik foto yang
+          diterima; bila berbeda, foto telah diubah dan harus ditolak.
+        </p>
         <p className="muted">
           Ini adalah simulasi integrasi. Pada pemakaian nyata, aplikasi penyedia menerima foto dan laporan ini melalui
           komponen SonarID, lalu menjalankan pemeriksaan keaslian sendiri.

@@ -1,9 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { feedback } from '../lib/feedback.js';
+import { PHRASES, PROVIDER_NAME, RESULT_SENTENCES } from '../lib/messages.js';
 import { useConfirmTap } from '../lib/useConfirmTap.js';
 import { IconCheck, IconCross, IconWarn } from './Icons.jsx';
-
-export const PROVIDER_NAME = 'Bank Contoh Nusantara';
 
 function StatusIcon({ check }) {
   if (check.warn) return <IconWarn className="ico-warn" />;
@@ -30,15 +29,18 @@ function CheckCard({ title, photo, checks, mirror }) {
   );
 }
 
-export function summarize(ktp, selfie) {
-  const detail = (r, id) => {
-    const c = r.checks.find((x) => x.id === id);
-    if (!c) return '';
-    const d = c.detail;
-    // Kecilkan huruf pertama kecuali singkatan seperti "NIK".
-    return /^[A-Z][a-z]/.test(d) ? d.charAt(0).toLowerCase() + d.slice(1) : d;
-  };
-  return `KTP: ${detail(ktp, 'nik')}, ${detail(ktp, 'sharp')}. Swafoto: ${detail(selfie, 'pos')}, ${detail(selfie, 'light')}.`;
+// Ringkasan yang dibacakan, disusun dari kalimat tetap di messages.js (setiap kalimat punya rekaman suara).
+// Isi KTP tidak pernah dibacakan; yang disebut hanya status pemeriksaan.
+export function summarize(ktp) {
+  const get = (id) => ktp.checks.find((c) => c.id === id);
+  const parts = [];
+  const nik = get('nik');
+  if (nik) parts.push(nik.warn ? RESULT_SENTENCES.nikSkipped : RESULT_SENTENCES.nikOk);
+  const sharp = get('sharp');
+  if (sharp) parts.push(sharp.warn ? RESULT_SENTENCES.ktpSharpEnough : RESULT_SENTENCES.ktpSharp);
+  if (ktp.checks.some((c) => c.warn && c.id !== 'nik' && c.id !== 'sharp')) parts.push(RESULT_SENTENCES.ktpNote);
+  parts.push(RESULT_SENTENCES.selfieOk);
+  return parts.join(' ');
 }
 
 export default function Result({ settings, ktp, selfie, onSend, onRetake }) {
@@ -48,25 +50,22 @@ export default function Result({ settings, ktp, selfie, onSend, onRetake }) {
 
   useEffect(() => {
     headingRef.current?.focus();
-    const how = nv
-      ? 'Ketuk bagian atas layar untuk mengirim, atau bagian bawah untuk mengulang swafoto.'
-      : 'Tekan tombol Kirim ke Penyedia untuk mengirim.';
-    feedback.say(`Semua foto layak dikirim. ${summarize(ktp, selfie)} ${how}`, { interrupt: true });
+    const how = nv ? PHRASES.resultHowNv : PHRASES.resultHow;
+    feedback.say(`${PHRASES.resultAllOk} ${summarize(ktp)} ${how}`, { interrupt: true });
     return () => feedback.stopSpeech();
   }, [ktp, selfie, nv]);
 
-  const send = confirmTap('send', `Kirim foto dan laporan ke ${PROVIDER_NAME}?`, onSend);
-  const retakeSelfie = confirmTap('selfie', 'Ulangi swafoto?', () => onRetake('selfie'));
-  const retakeKtp = confirmTap('ktp', 'Ulangi foto KTP?', () => onRetake('ktp'));
+  const send = confirmTap('send', PHRASES.confirmSend, onSend);
+  const retakeSelfie = confirmTap('selfie', PHRASES.confirmRetakeSelfie, () => onRetake('selfie'));
+  const retakeKtp = confirmTap('ktp', PHRASES.confirmRetakeKtp, () => onRetake('ktp'));
 
   return (
     <main className={`screen result ${nv ? 'nv-layout' : ''}`} aria-labelledby="result-title">
       <h1 id="result-title" ref={headingRef} tabIndex={-1}>
         Hasil pemeriksaan
       </h1>
-      <p className="lead" role="status">
-        Semua foto layak dikirim.
-      </p>
+      {/* Tanpa role="status": ringkasan sudah diucapkan SonarID, agar tidak terdengar dua kali bersama TalkBack. */}
+      <p className="lead">{PHRASES.resultAllOk}</p>
 
       <CheckCard title="KTP" photo={ktp.dataUrl} checks={ktp.checks} />
       <CheckCard title="Swafoto" photo={selfie.dataUrl} checks={selfie.checks} mirror />

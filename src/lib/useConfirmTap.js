@@ -1,5 +1,6 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { feedback } from './feedback.js';
+import { PHRASES } from './messages.js';
 
 // Pada Mode Uji Non-Visual, aksi penting butuh dua ketukan:
 // ketukan pertama mengucapkan konfirmasi, ketukan kedua (dalam 3 detik) menjalankan aksi.
@@ -28,7 +29,7 @@ export function useConfirmTap(enabled) {
         armed.current = null;
       }, 3000);
       feedback.vibrate(30);
-      feedback.say(`${prompt} Ketuk sekali lagi untuk melanjutkan.`, { interrupt: true });
+      feedback.say(`${prompt} ${PHRASES.confirmSuffix}`, { interrupt: true });
     },
     [enabled],
   );

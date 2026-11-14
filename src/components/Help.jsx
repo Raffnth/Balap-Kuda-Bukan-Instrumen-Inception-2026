@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { feedback } from '../lib/feedback.js';
-import { eventText } from '../lib/messages.js';
+import { eventText, PHRASES } from '../lib/messages.js';
 import { useConfirmTap } from '../lib/useConfirmTap.js';
 
 // Pilihan bantuan petugas setelah beberapa kali gagal (simulasi).
@@ -11,22 +11,17 @@ export default function Help({ settings, step, onRetry, onHome }) {
 
   useEffect(() => {
     headingRef.current?.focus();
-    const how = settings.nonVisual
-      ? ' Ketuk bagian atas layar untuk meminta bantuan petugas, atau bagian bawah untuk mencoba lagi.'
-      : '';
+    const how = settings.nonVisual ? ` ${PHRASES.helpHowNv}` : '';
     feedback.say(`${eventText('helpOffer', settings.detail)}${how}`, { interrupt: true });
     return () => feedback.stopSpeech();
   }, [settings.detail, settings.nonVisual]);
 
-  const request = confirmTap('help', 'Minta bantuan petugas?', () => {
+  const request = confirmTap('help', PHRASES.confirmHelp, () => {
     setRequested(true);
     feedback.success();
-    feedback.say(
-      'Permintaan bantuan terkirim. Petugas akan menghubungi Anda melalui panggilan video. Foto yang sudah berhasil tidak perlu diulang.',
-      { interrupt: true },
-    );
+    feedback.say(PHRASES.helpSent, { interrupt: true });
   });
-  const retry = confirmTap('retry', 'Coba lagi sendiri?', onRetry);
+  const retry = confirmTap('retry', PHRASES.confirmRetry, onRetry);
 
   return (
     <main className={`screen help ${settings.nonVisual ? 'nv-layout' : ''}`} aria-labelledby="help-title">
@@ -38,7 +33,7 @@ export default function Help({ settings, step, onRetry, onHome }) {
         bantuan petugas tanpa mengulang dari awal.
       </p>
       {requested && (
-        <p className="notice ok" role="status">
+        <p className="notice ok">
           Permintaan terkirim (simulasi). Petugas akan menghubungi Anda melalui panggilan video.
         </p>
       )}
