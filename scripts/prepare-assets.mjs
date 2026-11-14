@@ -103,7 +103,7 @@ if (tjsVer && coreDir && existsSync(join(tjsDir, 'dist', 'worker.min.js'))) {
   log('Tesseract.js tidak ditemukan di node_modules (jalankan npm install); memakai CDN');
 }
 
-// Sidik SHA-256 setiap berkas (bukti keutuhan; juga memudahkan pemeriksaan juri/penyedia).
+// Sidik SHA-256 setiap berkas (bukti keutuhan; juga memudahkan pemeriksaan oleh penyedia).
 function walk(dir) {
   if (!existsSync(dir)) return;
   for (const f of readdirSync(dir)) {

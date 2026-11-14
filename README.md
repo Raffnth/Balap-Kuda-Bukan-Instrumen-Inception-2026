@@ -8,7 +8,7 @@ SonarID memandu penyandang tunanetra memotret **KTP** dan **swafoto** untuk eKYC
 |---|---|
 | Produk | https://sonarid.my.id |
 | Kartu uji fiktif | https://sonarid.my.id/kartu-uji.html |
-| Perubahan sejak `submission-24h` | [CHANGELOG.md](CHANGELOG.md) |
+| Riwayat perubahan | [CHANGELOG.md](CHANGELOG.md) |
 
 ## Masalah dan solusi
 
