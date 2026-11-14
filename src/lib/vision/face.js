@@ -1,10 +1,10 @@
 // Pengenalan wajah dengan MediaPipe Face Landmarker (478 titik wajah), berjalan di perangkat.
 // Versi file WASM harus sama persis dengan versi paket @mediapipe/tasks-vision di package.json.
+// Berkas WASM dan model diambil dari situs sendiri (/vendor) bila tersedia, lalu CDN sebagai cadangan.
 
-export const MEDIAPIPE_VERSION = '0.10.3';
-const WASM_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
-const MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+import { mediapipeSources, MEDIAPIPE_VERSION } from '../vendor.js';
+
+export { MEDIAPIPE_VERSION };
 
 let landmarkerPromise = null;
 
@@ -12,21 +12,29 @@ export function loadFaceLandmarker() {
   if (!landmarkerPromise) {
     landmarkerPromise = (async () => {
       const { FilesetResolver, FaceLandmarker } = await import('@mediapipe/tasks-vision');
-      const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
-      const options = (delegate) => ({
-        baseOptions: { modelAssetPath: MODEL_URL, delegate },
-        runningMode: 'VIDEO',
-        numFaces: 1,
-        minFaceDetectionConfidence: 0.5,
-        minFacePresenceConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
-      try {
-        return await FaceLandmarker.createFromOptions(fileset, options('GPU'));
-      } catch {
-        // Sebagian ponsel tidak mendukung GPU di browser: gunakan CPU.
-        return await FaceLandmarker.createFromOptions(fileset, options('CPU'));
+      let lastErr = null;
+      for (const src of await mediapipeSources()) {
+        try {
+          const fileset = await FilesetResolver.forVisionTasks(src.wasm);
+          const options = (delegate) => ({
+            baseOptions: { modelAssetPath: src.model, delegate },
+            runningMode: 'VIDEO',
+            numFaces: 1,
+            minFaceDetectionConfidence: 0.5,
+            minFacePresenceConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+          });
+          try {
+            return await FaceLandmarker.createFromOptions(fileset, options('GPU'));
+          } catch {
+            // Sebagian ponsel tidak mendukung GPU di browser: gunakan CPU.
+            return await FaceLandmarker.createFromOptions(fileset, options('CPU'));
+          }
+        } catch (err) {
+          lastErr = err; // coba sumber berikutnya (CDN)
+        }
       }
+      throw lastErr || new Error('model');
     })().catch((err) => {
       landmarkerPromise = null; // izinkan mencoba lagi
       throw err;

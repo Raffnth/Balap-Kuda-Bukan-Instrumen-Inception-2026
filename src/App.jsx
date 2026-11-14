@@ -7,6 +7,11 @@ import Help from './components/Help.jsx';
 import Kinerja from './components/Kinerja.jsx';
 import { feedback } from './lib/feedback.js';
 import { newSession, saveSession } from './lib/metrics.js';
+import { PHRASES } from './lib/messages.js';
+
+// Perlindungan data: foto KTP dan swafoto hanya ada di memori halaman. Foto dihapus saat kembali ke
+// beranda, dan seluruh sesi dihapus bila aplikasi ditinggalkan (di latar belakang) lebih dari 5 menit.
+const AWAY_LIMIT_MS = 5 * 60 * 1000;
 
 const SETTINGS_KEY = 'sonarid.settings.v1';
 const DEFAULT_SETTINGS = { detail: 'lengkap', nonVisual: false };
@@ -31,8 +36,11 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [photos, setPhotos] = useState({ ktp: null, selfie: null });
   const [helpStep, setHelpStep] = useState('ktp');
+  const [wiped, setWiped] = useState(false);
   const photosRef = useRef(photos);
   photosRef.current = photos;
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
 
   useEffect(() => {
     try {
@@ -52,11 +60,35 @@ export default function App() {
   const goHome = useCallback(() => {
     feedback.stopAll();
     if (window.location.hash) window.history.replaceState(null, '', window.location.pathname);
+    setPhotos({ ktp: null, selfie: null }); // foto tidak disimpan setelah sesi selesai
     setScreen('home');
   }, []);
 
+  // Hapus sesi bila aplikasi ditinggalkan terlalu lama (misalnya ponsel diletakkan atau berpindah aplikasi).
+  useEffect(() => {
+    let hiddenAt = 0;
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+        return;
+      }
+      const away = hiddenAt ? Date.now() - hiddenAt : 0;
+      hiddenAt = 0;
+      const active = screenRef.current !== 'home' && screenRef.current !== 'kinerja';
+      if (away > AWAY_LIMIT_MS && (active || photosRef.current.ktp || photosRef.current.selfie)) {
+        goHome();
+        setWiped(true);
+        feedback.unlock();
+        feedback.say(PHRASES.sessionWiped, { interrupt: true });
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [goHome]);
+
   const start = () => {
     feedback.unlock(); // wajib dari ketukan pengguna agar suara dan nada boleh diputar
+    setWiped(false);
     setSession(newSession(settings));
     setPhotos({ ktp: null, selfie: null });
     setScreen('ktp');
@@ -110,6 +142,7 @@ export default function App() {
           settings={settings}
           onChange={setSettings}
           onStart={start}
+          wiped={wiped}
           onOpenKinerja={() => {
             window.location.hash = 'kinerja';
           }}

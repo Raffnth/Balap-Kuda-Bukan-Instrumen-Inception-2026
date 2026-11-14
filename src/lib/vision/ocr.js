@@ -1,6 +1,7 @@
 // Pembacaan NIK dengan Tesseract.js (OCR di perangkat). Isi NIK tidak pernah diucapkan atau dikirim.
 
 import { cropCanvas, normalizeBinarize } from './imageTools.js';
+import { tesseractOptions } from '../vendor.js';
 
 let workerPromise = null;
 
@@ -8,9 +9,21 @@ export function warmUpOcr() {
   if (!workerPromise) {
     workerPromise = (async () => {
       const { createWorker } = await import('tesseract.js');
-      const worker = await createWorker('eng');
-      await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
-      return worker;
+      let lastErr = null;
+      // Berkas Tesseract dari situs sendiri (/vendor) bila tersedia, lalu CDN bawaan Tesseract.js.
+      for (const src of await tesseractOptions()) {
+        let worker = null;
+        try {
+          // Sumber lokal yang rusak (misalnya unggahan belum lengkap) tidak boleh membuat OCR menunggu lama.
+          worker = await withTimeout(createWorker('eng', 1, src.options), src.local ? 15000 : 45000);
+          await worker.setParameters({ tessedit_char_whitelist: '0123456789' });
+          return worker;
+        } catch (err) {
+          lastErr = err;
+          if (worker) worker.terminate().catch(() => {});
+        }
+      }
+      throw lastErr || new Error('OCR');
     })().catch((err) => {
       workerPromise = null;
       throw err;
