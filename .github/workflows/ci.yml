@@ -1,0 +1,29 @@
+# Pemeriksaan otomatis setiap push dan pull request: uji unit, kelengkapan suara pemandu, dan build produksi.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint --if-present
+      - run: npm test
+      - name: Rekaman suara pemandu lengkap
+        run: node scripts/generate-voice.mjs --check
+      - run: npm run build
+      - name: Ukuran hasil build
+        run: du -sh dist dist/voice dist/vendor 2>/dev/null || true
