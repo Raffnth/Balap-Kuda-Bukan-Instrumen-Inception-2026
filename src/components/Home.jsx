@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { DETAIL_LEVELS } from '../lib/messages.js';
+import { DETAIL_LEVELS, PHRASES } from '../lib/messages.js';
 import { cameraAvailable } from '../lib/camera.js';
 import { feedback } from '../lib/feedback.js';
 import { warmUpOcr } from '../lib/vision/ocr.js';
 import { LogoMark, IconShield, IconSound } from './Icons.jsx';
 
-export default function Home({ settings, onChange, onStart, onOpenKinerja }) {
+export default function Home({ settings, onChange, onStart, onOpenKinerja, wiped = false }) {
   const headingRef = useRef(null);
   const [voice, setVoice] = useState(() => feedback.voiceStatus());
   const [tested, setTested] = useState(false);
@@ -14,6 +14,8 @@ export default function Home({ settings, onChange, onStart, onOpenKinerja }) {
     // Daftar suara browser dimuat belakangan; periksa ulang beberapa kali.
     const check = () => setVoice(feedback.voiceStatus());
     const timers = [300, 1000, 2500].map((ms) => setTimeout(check, ms));
+    // Rekaman suara SonarID dimuat di latar belakang; perbarui status setelah selesai.
+    feedback.loadVoice().then(check, check);
     // Siapkan pembaca NIK (OCR) sejak beranda agar pemeriksaan KTP nanti langsung cepat.
     timers.push(setTimeout(() => warmUpOcr().catch(() => {}), 1500));
     window.speechSynthesis?.addEventListener?.('voiceschanged', check);
@@ -41,6 +43,8 @@ export default function Home({ settings, onChange, onStart, onOpenKinerja }) {
         </span>
       </header>
 
+      {wiped && <p className="notice warn">{PHRASES.sessionWiped}</p>}
+
       <section className="hero">
         <h1 id="home-title" ref={headingRef} tabIndex={-1}>
           Verifikasi identitas tanpa melihat layar
@@ -64,11 +68,16 @@ export default function Home({ settings, onChange, onStart, onOpenKinerja }) {
       <button type="button" className="btn btn-secondary test-av" onClick={runTest}>
         Uji suara dan getar
       </button>
+      {voice === 'clips' && (
+        <p className="notice ok voice-ready">
+          Suara pemandu SonarID siap. Tidak perlu mengatur suara atau bahasa ponsel.
+        </p>
+      )}
       {voice === 'missing' && (
         <div className="notice warn" role="alert">
           <p>
-            <strong>Suara bahasa Indonesia belum terpasang</strong>, sehingga petunjuk diucapkan dengan logat Inggris.
-            Pasang dulu:
+            <strong>Suara pemandu belum termuat</strong> (periksa koneksi, lalu muat ulang halaman). Sementara itu
+            petunjuk memakai suara ponsel, yang memerlukan suara bahasa Indonesia agar tidak berlogat Inggris:
           </p>
           <ol className="steps-list">
             <li>Buka Setelan ponsel, lalu cari "Text-to-speech" (Keluaran teks-ke-ucapan).</li>
@@ -132,7 +141,7 @@ export default function Home({ settings, onChange, onStart, onOpenKinerja }) {
       <p className="privacy">
         <IconShield className="ico-teal" />
         <span>
-          Semua analisis berlangsung di ponsel Anda. Gambar dari kamera tidak disimpan dan tidak dikirim ke server.
+          Semua analisis berlangsung di ponsel Anda. Foto tidak dikirim ke server dan dihapus otomatis saat sesi selesai.
           Isi KTP tidak pernah dibacakan.
         </span>
       </p>

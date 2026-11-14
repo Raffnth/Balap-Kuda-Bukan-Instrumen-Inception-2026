@@ -1,0 +1,642 @@
+{
+ "version": 1,
+ "generatedAt": "2026-11-14T02:54:19.875Z",
+ "engine": "edge",
+ "voice": "id-ID-GadisNeural",
+ "rate": "+0%",
+ "count": 158,
+ "items": {
+  "34092412": {
+   "f": "34092412-694dbbbf79.mp3",
+   "t": "Bagus, terus."
+  },
+  "66873517": {
+   "f": "66873517-f0481692bc.mp3",
+   "t": "Komponen pengenal wajah gagal dimuat."
+  },
+  "84220843": {
+   "f": "84220843-3abe53c862.mp3",
+   "t": "Tegakkan."
+  },
+  "91917514": {
+   "f": "91917514-895ebcad06.mp3",
+   "t": "Nyalakan lampu atau pindah ke tempat terang."
+  },
+  "92081435": {
+   "f": "92081435-2a5edc17f9.mp3",
+   "t": "Ada silau."
+  },
+  "99621535": {
+   "f": "99621535-39b46809c5.mp3",
+   "t": "Arahkan layar ke wajah."
+  },
+  "99752718": {
+   "f": "99752718-dc735fd3a0.mp3",
+   "t": "Ketuk bagian atas layar untuk mengirim, atau bagian bawah untuk mengulang swafoto."
+  },
+  "0061be0d": {
+   "f": "0061be0d-2ca101fa21.mp3",
+   "t": "Jauhkan ponsel sedikit."
+  },
+  "0098b7c8": {
+   "f": "0098b7c8-10329c6e36.mp3",
+   "t": "Kirim foto dan laporan ke Bank Contoh Nusantara?"
+  },
+  "009dccd1": {
+   "f": "009dccd1-703ec638e9.mp3",
+   "t": "Geser KTP ke kiri."
+  },
+  "02307e1a": {
+   "f": "02307e1a-22c29a1a7c.mp3",
+   "t": "Senter dinyalakan."
+  },
+  "08cb96a8": {
+   "f": "08cb96a8-e29a99cde4.mp3",
+   "t": "Turunkan KTP."
+  },
+  "0afcac74": {
+   "f": "0afcac74-f3fe652e08.mp3",
+   "t": "Foto KTP diambil."
+  },
+  "0d057e57": {
+   "f": "0d057e57-668ff0fb2b.mp3",
+   "t": "Naikkan KTP."
+  },
+  "116d4aa5": {
+   "f": "116d4aa5-1b18f1f551.mp3",
+   "t": "Ulangi swafoto?"
+  },
+  "17c49260": {
+   "f": "17c49260-6293b918a2.mp3",
+   "t": "Ada pantulan."
+  },
+  "193e7ea7": {
+   "f": "193e7ea7-a7cccdc49b.mp3",
+   "t": "Ada pantulan cahaya."
+  },
+  "1b34350b": {
+   "f": "1b34350b-32e1f7fafd.mp3",
+   "t": "Silakan mulai lagi."
+  },
+  "1d9d0042": {
+   "f": "1d9d0042-c475fcfd9a.mp3",
+   "t": "Sedikit lebih jauh."
+  },
+  "1f47f1b6": {
+   "f": "1f47f1b6-549e63b438.mp3",
+   "t": "Sedikit ke depan."
+  },
+  "205548cc": {
+   "f": "205548cc-96de8d7610.mp3",
+   "t": "Posisi wajah belum tepat."
+  },
+  "24f9a935": {
+   "f": "24f9a935-cc23f68332.mp3",
+   "t": "SonarID."
+  },
+  "26955be1": {
+   "f": "26955be1-a7451da2ba.mp3",
+   "t": "Geser ponsel ke belakang."
+  },
+  "269e4303": {
+   "f": "269e4303-372506616d.mp3",
+   "t": "Semua foto layak dikirim."
+  },
+  "283853e7": {
+   "f": "283853e7-a89325d4b8.mp3",
+   "t": "Ada pantulan cahaya di KTP."
+  },
+  "2b86c2b7": {
+   "f": "2b86c2b7-07e06c1dca.mp3",
+   "t": "Putar KTP seperempat putaran."
+  },
+  "2c378898": {
+   "f": "2c378898-ddee31bbe5.mp3",
+   "t": "Luruskan."
+  },
+  "2c640482": {
+   "f": "2c640482-2b8ac629be.mp3",
+   "t": "Swafoto diambil."
+  },
+  "2e4d3909": {
+   "f": "2e4d3909-420c67964e.mp3",
+   "t": "Putar KTP searah jarum jam."
+  },
+  "2ffbeca0": {
+   "f": "2ffbeca0-114fdf327e.mp3",
+   "t": "Sesi berakhir untuk melindungi data Anda."
+  },
+  "30a2767a": {
+   "f": "30a2767a-41de7b60e8.mp3",
+   "t": "Swafoto."
+  },
+  "30e00717": {
+   "f": "30e00717-643774f9f4.mp3",
+   "t": "Pegang KTP di depan kamera dengan latar belakang polos."
+  },
+  "333f704e": {
+   "f": "333f704e-d637e43698.mp3",
+   "t": "Balik ponsel sehingga layar menghadap wajah Anda, pegang setinggi wajah, lalu ikuti suara dan nada."
+  },
+  "3be1256e": {
+   "f": "3be1256e-a60b86c613.mp3",
+   "t": "Terus."
+  },
+  "3dd398e4": {
+   "f": "3dd398e4-836300bc4a.mp3",
+   "t": "Letakkan KTP di atas permukaan polos, lalu arahkan kamera ke KTP."
+  },
+  "3e8032e6": {
+   "f": "3e8032e6-d2392455f5.mp3",
+   "t": "Jauhkan ponsel."
+  },
+  "452eae28": {
+   "f": "452eae28-43066f2355.mp3",
+   "t": "Dekatkan KTP ke kamera."
+  },
+  "453cbb55": {
+   "f": "453cbb55-c91988c34d.mp3",
+   "t": "Jauhkan."
+  },
+  "45bce641": {
+   "f": "45bce641-0de4d216a7.mp3",
+   "t": "Putar ponsel searah jarum jam."
+  },
+  "4617cfaa": {
+   "f": "4617cfaa-580f3d672c.mp3",
+   "t": "Layar akan gelap."
+  },
+  "4a2c155d": {
+   "f": "4a2c155d-6d7fb1c633.mp3",
+   "t": "Tahan ponsel tetap diam."
+  },
+  "4a6b1fa6": {
+   "f": "4a6b1fa6-22aff7dbfc.mp3",
+   "t": "Dekatkan."
+  },
+  "4afde151": {
+   "f": "4afde151-c5a9127faa.mp3",
+   "t": "Geser ponsel ke kanan."
+  },
+  "4b112b92": {
+   "f": "4b112b92-e0b5ee9142.mp3",
+   "t": "Hadap lurus."
+  },
+  "4b994615": {
+   "f": "4b994615-6a3dfc50ed.mp3",
+   "t": "Naikkan ponsel."
+  },
+  "5125f400": {
+   "f": "5125f400-711e68f0c1.mp3",
+   "t": "KTP miring."
+  },
+  "527b2053": {
+   "f": "527b2053-52b6d00d9b.mp3",
+   "t": "NIK terbaca."
+  },
+  "5648c5b3": {
+   "f": "5648c5b3-acf6f8b099.mp3",
+   "t": "Turunkan ponsel sedikit."
+  },
+  "572d50f7": {
+   "f": "572d50f7-a655320179.mp3",
+   "t": "Masih terlalu gelap."
+  },
+  "5807ee84": {
+   "f": "5807ee84-a38842964c.mp3",
+   "t": "Hadapkan ke cahaya."
+  },
+  "5814213a": {
+   "f": "5814213a-2edca01347.mp3",
+   "t": "Nyalakan lampu atau hadapkan KTP ke cahaya."
+  },
+  "59c262ff": {
+   "f": "59c262ff-25af89e6fc.mp3",
+   "t": "Putar ponsel seperempat putaran."
+  },
+  "5a33e178": {
+   "f": "5a33e178-054c32856e.mp3",
+   "t": "Ketuk sekali lagi untuk melanjutkan."
+  },
+  "5a51cd52": {
+   "f": "5a51cd52-1c91cd7572.mp3",
+   "t": "Foto buram."
+  },
+  "5d33bb85": {
+   "f": "5d33bb85-231efe4b1b.mp3",
+   "t": "Minta bantuan petugas?"
+  },
+  "5d8cd95e": {
+   "f": "5d8cd95e-1e2eda1a7a.mp3",
+   "t": "Naikkan ponsel sedikit."
+  },
+  "5e6eefd2": {
+   "f": "5e6eefd2-aa7ffc9718.mp3",
+   "t": "Kiri."
+  },
+  "5f9a1b23": {
+   "f": "5f9a1b23-82a35f5809.mp3",
+   "t": "Periksa koneksi internet, lalu coba lagi."
+  },
+  "5ff25d57": {
+   "f": "5ff25d57-7bccd4999b.mp3",
+   "t": "Turun."
+  },
+  "626d8e9f": {
+   "f": "626d8e9f-ea9bb46ae8.mp3",
+   "t": "Tunggu sebentar."
+  },
+  "62a8dedf": {
+   "f": "62a8dedf-60f30c82bd.mp3",
+   "t": "Dekatkan ponsel."
+  },
+  "62fb21c6": {
+   "f": "62fb21c6-133516114c.mp3",
+   "t": "Putar KTP setengah putaran."
+  },
+  "6503beef": {
+   "f": "6503beef-5369ab561d.mp3",
+   "t": "Anda dapat meminta bantuan petugas tanpa mengulang dari awal."
+  },
+  "66aedae2": {
+   "f": "66aedae2-a2608be0ea.mp3",
+   "t": "Arahkan kamera belakang ke KTP."
+  },
+  "66cc4a69": {
+   "f": "66cc4a69-3b1918e492.mp3",
+   "t": "Wajah terlihat jelas dan menghadap lurus."
+  },
+  "673e23d0": {
+   "f": "673e23d0-33fb7b7f70.mp3",
+   "t": "Permintaan bantuan terkirim."
+  },
+  "6b30b8fc": {
+   "f": "6b30b8fc-0a91eadd20.mp3",
+   "t": "Tahan diam."
+  },
+  "6c84c1a4": {
+   "f": "6c84c1a4-d29619b78c.mp3",
+   "t": "Putar kiri."
+  },
+  "7031f2d3": {
+   "f": "7031f2d3-ff6ea205c3.mp3",
+   "t": "Petugas akan menghubungi Anda melalui panggilan video."
+  },
+  "70c49155": {
+   "f": "70c49155-4539df8687.mp3",
+   "t": "Uji suara SonarID."
+  },
+  "70ee2590": {
+   "f": "70ee2590-093419e7de.mp3",
+   "t": "Foto yang sudah berhasil tidak perlu diulang."
+  },
+  "70f0a162": {
+   "f": "70f0a162-3edfe0b4fc.mp3",
+   "t": "KTP terbalik."
+  },
+  "73d882ab": {
+   "f": "73d882ab-c51391c0ea.mp3",
+   "t": "Pastikan izin kamera diberikan untuk situs ini, lalu coba lagi."
+  },
+  "75eb3ea9": {
+   "f": "75eb3ea9-407d9c09bd.mp3",
+   "t": "Geser KTP ke kanan."
+  },
+  "768c51bb": {
+   "f": "768c51bb-c0f290130e.mp3",
+   "t": "Ada catatan kecil pada foto KTP, tetapi tetap layak."
+  },
+  "7784a237": {
+   "f": "7784a237-b5bfd281fa.mp3",
+   "t": "Tahan ponsel lebih diam."
+  },
+  "78e01514": {
+   "f": "78e01514-dc9e9e4a4f.mp3",
+   "t": "Geser ponsel ke depan."
+  },
+  "7a1b0bf5": {
+   "f": "7a1b0bf5-2ef64d41ab.mp3",
+   "t": "Pegang ponsel setinggi wajah, layar menghadap Anda."
+  },
+  "7a37cf90": {
+   "f": "7a37cf90-c1941b3b7f.mp3",
+   "t": "Kanan."
+  },
+  "7af6c620": {
+   "f": "7af6c620-c54f65b996.mp3",
+   "t": "Dekatkan ponsel sedikit."
+  },
+  "7b85fe5f": {
+   "f": "7b85fe5f-869f0619be.mp3",
+   "t": "Hindari cahaya langsung ke KTP."
+  },
+  "7fe8c619": {
+   "f": "7fe8c619-f61753301b.mp3",
+   "t": "Kelewatan."
+  },
+  "806c44dc": {
+   "f": "806c44dc-b5ed2f2db8.mp3",
+   "t": "Tegakkan ponsel."
+  },
+  "82f7c9fb": {
+   "f": "82f7c9fb-58dc4c0bfc.mp3",
+   "t": "Pegang KTP di depan kamera, dengan latar belakang polos."
+  },
+  "84714f7c": {
+   "f": "84714f7c-ce08d38875.mp3",
+   "t": "NIK belum terbaca."
+  },
+  "8798a6eb": {
+   "f": "8798a6eb-f004c49de0.mp3",
+   "t": "Tekan tombol Kirim ke Penyedia untuk mengirim."
+  },
+  "88087fb3": {
+   "f": "88087fb3-55fade74b3.mp3",
+   "t": "Sedikit ke kiri."
+  },
+  "8ab22d0d": {
+   "f": "8ab22d0d-c3b1377f99.mp3",
+   "t": "Gambar kurang fokus."
+  },
+  "8b7f6eeb": {
+   "f": "8b7f6eeb-e96633f944.mp3",
+   "t": "Sebaiknya pindah ke tempat yang lebih terang."
+  },
+  "9097c3a3": {
+   "f": "9097c3a3-5d1b8b6258.mp3",
+   "t": "Sedikit ke belakang."
+  },
+  "915da5b5": {
+   "f": "915da5b5-02cc71c139.mp3",
+   "t": "Terlalu gelap."
+  },
+  "91e106c9": {
+   "f": "91e106c9-3421a560c3.mp3",
+   "t": "Sedikit lebih dekat."
+  },
+  "920cb03a": {
+   "f": "920cb03a-a38b0cd1aa.mp3",
+   "t": "Naik."
+  },
+  "927a56ca": {
+   "f": "927a56ca-4ed34a7925.mp3",
+   "t": "Foto KTP berhasil."
+  },
+  "9314ce91": {
+   "f": "9314ce91-dcd7cf92d6.mp3",
+   "t": "Putar seperempat."
+  },
+  "93d08a4c": {
+   "f": "93d08a4c-88d14b7f5f.mp3",
+   "t": "Wajah terlihat jelas."
+  },
+  "95cde05c": {
+   "f": "95cde05c-9bfdebd37e.mp3",
+   "t": "Luruskan posisi KTP."
+  },
+  "967963c8": {
+   "f": "967963c8-3b7daff7ae.mp3",
+   "t": "Wajah belum terlihat."
+  },
+  "9a323e0b": {
+   "f": "9a323e0b-6ae3e3f257.mp3",
+   "t": "Memeriksa kualitas."
+  },
+  "9e4161cb": {
+   "f": "9e4161cb-a89a33cc6f.mp3",
+   "t": "Foto KTP tajam."
+  },
+  "a0786ed8": {
+   "f": "a0786ed8-d68c1c55eb.mp3",
+   "t": "Mode uji non visual aktif."
+  },
+  "a6d947d7": {
+   "f": "a6d947d7-1aea80c01a.mp3",
+   "t": "Sedang diperiksa."
+  },
+  "aa9726fd": {
+   "f": "aa9726fd-9274b02a58.mp3",
+   "t": "Foto terlalu terang."
+  },
+  "aafbb695": {
+   "f": "aafbb695-1d428cc203.mp3",
+   "t": "Terima kasih."
+  },
+  "ade45945": {
+   "f": "ade45945-e03a7c3457.mp3",
+   "t": "Foto belum berhasil beberapa kali."
+  },
+  "ae21c875": {
+   "f": "ae21c875-ba4dbf710d.mp3",
+   "t": "Jauhkan KTP dari kamera."
+  },
+  "af425800": {
+   "f": "af425800-85b87f26e2.mp3",
+   "t": "Foto KTP."
+  },
+  "af73eed3": {
+   "f": "af73eed3-e99e02e0c0.mp3",
+   "t": "Naikkan sedikit."
+  },
+  "b028df89": {
+   "f": "b028df89-e14777bea6.mp3",
+   "t": "Geser ponsel ke kiri."
+  },
+  "b03aa599": {
+   "f": "b03aa599-02f7d79019.mp3",
+   "t": "Miringkan KTP sedikit."
+  },
+  "b087d06c": {
+   "f": "b087d06c-3d40844a90.mp3",
+   "t": "Tunjukkan KTP ke kamera."
+  },
+  "b171e9ec": {
+   "f": "b171e9ec-75cf52c5c6.mp3",
+   "t": "Wajah terlalu gelap."
+  },
+  "b30087fc": {
+   "f": "b30087fc-a5ac113dbe.mp3",
+   "t": "Turunkan sedikit."
+  },
+  "b33ef78c": {
+   "f": "b33ef78c-4a75e12c23.mp3",
+   "t": "Turunkan ponsel."
+  },
+  "b3449fdd": {
+   "f": "b3449fdd-a84f16a879.mp3",
+   "t": "Panduan suara untuk memotret KTP dan wajah."
+  },
+  "b399e1be": {
+   "f": "b399e1be-c6a3ff498c.mp3",
+   "t": "Putar KTP berlawanan jarum jam."
+  },
+  "b6c84bb7": {
+   "f": "b6c84bb7-307f22d498.mp3",
+   "t": "Jika ponsel bergetar dan suara ini terdengar jelas, semuanya siap."
+  },
+  "b81acb49": {
+   "f": "b81acb49-1e9c66bed4.mp3",
+   "t": "Hadapkan wajah ke cahaya."
+  },
+  "bbab9e77": {
+   "f": "bbab9e77-c419f0b1ff.mp3",
+   "t": "Ketuk layar untuk kembali ke awal."
+  },
+  "bfc44c6a": {
+   "f": "bfc44c6a-b74759b27a.mp3",
+   "t": "Arahkan kamera belakang ke KTP, sekitar satu jengkal di atasnya."
+  },
+  "c0640f93": {
+   "f": "c0640f93-b928d05f7f.mp3",
+   "t": "Kamera tidak dapat dibuka."
+  },
+  "c08ae74c": {
+   "f": "c08ae74c-f87974b4dc.mp3",
+   "t": "Langkah pertama, foto KTP."
+  },
+  "c46cb00b": {
+   "f": "c46cb00b-785fad993e.mp3",
+   "t": "Foto sudah dihapus dari ponsel."
+  },
+  "c4e7110e": {
+   "f": "c4e7110e-5607fc16a0.mp3",
+   "t": "KTP belum terlihat."
+  },
+  "c5b76175": {
+   "f": "c5b76175-ebcb68a829.mp3",
+   "t": "Letakkan KTP di atas meja, lalu arahkan kamera belakang ke KTP."
+  },
+  "c7ff8578": {
+   "f": "c7ff8578-9134fec9a1.mp3",
+   "t": "NIK tidak dapat diperiksa karena koneksi."
+  },
+  "c809a52e": {
+   "f": "c809a52e-ae77f3ffb3.mp3",
+   "t": "Mari ulangi."
+  },
+  "c97a91ee": {
+   "f": "c97a91ee-675cf7035a.mp3",
+   "t": "Masih gelap."
+  },
+  "cb549242": {
+   "f": "cb549242-514617e561.mp3",
+   "t": "Hadapkan wajah lurus ke kamera."
+  },
+  "cd09ae97": {
+   "f": "cd09ae97-504dae59ad.mp3",
+   "t": "Ketuk di mana saja untuk mulai."
+  },
+  "cd5269c4": {
+   "f": "cd5269c4-0965cb90ee.mp3",
+   "t": "Maju."
+  },
+  "d0437d16": {
+   "f": "d0437d16-578f6bd33c.mp3",
+   "t": "Cahaya cukup."
+  },
+  "d11a43c5": {
+   "f": "d11a43c5-f674908177.mp3",
+   "t": "Foto terlalu gelap."
+  },
+  "d1769f80": {
+   "f": "d1769f80-ba6f94d3eb.mp3",
+   "t": "Wajah tidak terlihat."
+  },
+  "d218d4bf": {
+   "f": "d218d4bf-31da79d178.mp3",
+   "t": "Tahan KTP lebih diam."
+  },
+  "d729093e": {
+   "f": "d729093e-39e6940729.mp3",
+   "t": "Foto KTP cukup tajam untuk dibaca."
+  },
+  "d860197b": {
+   "f": "d860197b-6169703977.mp3",
+   "t": "Ikuti nada."
+  },
+  "d99c8bfe": {
+   "f": "d99c8bfe-19ba670426.mp3",
+   "t": "Hampir tepat."
+  },
+  "de08f774": {
+   "f": "de08f774-81ab1fc8c8.mp3",
+   "t": "Kembali ke awal?"
+  },
+  "e6917541": {
+   "f": "e6917541-6d5260526a.mp3",
+   "t": "Miringkan ponsel sedikit."
+  },
+  "e8106380": {
+   "f": "e8106380-76e662c3c3.mp3",
+   "t": "Mundur."
+  },
+  "e8e55245": {
+   "f": "e8e55245-ec3959016e.mp3",
+   "t": "Jauhkan KTP sedikit."
+  },
+  "e9dba50b": {
+   "f": "e9dba50b-7c942cad6d.mp3",
+   "t": "Ulangi foto KTP?"
+  },
+  "ec42b9e5": {
+   "f": "ec42b9e5-5146cfa41f.mp3",
+   "t": "Gambar belum tajam."
+  },
+  "ec5dfa74": {
+   "f": "ec5dfa74-87563f6109.mp3",
+   "t": "Lewat."
+  },
+  "edcd551e": {
+   "f": "edcd551e-d69f314d63.mp3",
+   "t": "Langkah kedua, swafoto."
+  },
+  "ee51bbe2": {
+   "f": "ee51bbe2-865fcd519f.mp3",
+   "t": "Putar kanan."
+  },
+  "eea927fe": {
+   "f": "eea927fe-4982ac8a7a.mp3",
+   "t": "Ketuk bagian atas layar untuk meminta bantuan petugas, atau bagian bawah untuk mencoba lagi."
+  },
+  "f06f1a6e": {
+   "f": "f06f1a6e-0203f5ad29.mp3",
+   "t": "Coba lagi sendiri?"
+  },
+  "f0721ff4": {
+   "f": "f0721ff4-b6e2761043.mp3",
+   "t": "Cahaya kurang."
+  },
+  "f0e34ab6": {
+   "f": "f0e34ab6-43af1ffb97.mp3",
+   "t": "Wajah terlalu terang."
+  },
+  "f5313bb0": {
+   "f": "f5313bb0-54c7b88ea7.mp3",
+   "t": "Foto dan laporan kualitas sudah diterima penyedia layanan."
+  },
+  "f7c641b3": {
+   "f": "f7c641b3-f8312c92ce.mp3",
+   "t": "Foto diambil otomatis."
+  },
+  "fa023647": {
+   "f": "fa023647-50bfe2d59f.mp3",
+   "t": "Masih memeriksa."
+  },
+  "fb37fb79": {
+   "f": "fb37fb79-2e19cb4f95.mp3",
+   "t": "Tahan."
+  },
+  "fdafaa36": {
+   "f": "fdafaa36-3e8051b4ec.mp3",
+   "t": "Putar ponsel berlawanan jarum jam."
+  },
+  "fe3d68fb": {
+   "f": "fe3d68fb-035ffa6d31.mp3",
+   "t": "Sedikit ke kanan."
+  },
+  "ff812224": {
+   "f": "ff812224-81dd58beae.mp3",
+   "t": "Swafoto berhasil."
+  }
+ }
+}

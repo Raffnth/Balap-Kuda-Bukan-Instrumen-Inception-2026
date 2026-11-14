@@ -1,6 +1,10 @@
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
+import { feedback } from './lib/feedback.js';
+
+// Muat rekaman suara SonarID sejak awal (sekitar 1 MB, lalu tersimpan untuk penggunaan luring).
+feedback.loadVoice();
 
 createRoot(document.getElementById('root')).render(<App />);
 

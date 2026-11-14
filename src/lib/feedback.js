@@ -1,5 +1,13 @@
-// Umpan balik non-visual: suara (Web Speech), nada (Web Audio), dan getar (Vibration API).
+// Umpan balik non-visual: suara, nada (Web Audio), dan getar (Vibration API).
+// Suara utama adalah rekaman suara SonarID (berkas di /voice, dibuat dengan TTS neural bahasa Indonesia),
+// sehingga logat dan kejelasan sama di semua ponsel tanpa pengaturan apa pun. Web Speech hanya cadangan,
+// dan hanya dipakai bila ponsel punya suara bahasa Indonesia (agar tidak terdengar berlogat Inggris).
 // Semua fungsi aman dipanggil walaupun fitur tidak didukung perangkat (misalnya getar di iPhone).
+
+import { splitSentences, voiceKey } from './voice-core.js';
+import { PHRASES } from './messages.js';
+
+const VOICE_BASE = '/voice/';
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
@@ -18,6 +26,18 @@ class Feedback {
     this.unlocked = false;
     this.voicesLoaded = false;
     this.steadyBuzzed = false;
+    // Rekaman suara: kunci kalimat -> nama berkas, isi berkas (ArrayBuffer), dan hasil decode (AudioBuffer).
+    this.clipFiles = null;
+    this.clipBytes = new Map();
+    this.clipDecoded = new Map();
+    this.clipBounds = new WeakMap(); // batas suara tanpa jeda hening di awal dan akhir rekaman
+    this.clipsReady = false;
+    this.clipsLoading = null;
+    this.clipsDone = false;
+    this.clipSource = null; // potongan suara yang sedang diputar
+    this.clipQueue = Promise.resolve();
+    this.gen = 0; // bertambah setiap ucapan dipotong; ucapan dari generasi lama berhenti
+    this.speechGain = null;
     this._pickVoice = this._pickVoice.bind(this);
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       this._pickVoice();
@@ -57,8 +77,55 @@ class Feedback {
     }
   }
 
-  // Status suara untuk ditampilkan di beranda: 'ok' (ada suara Indonesia), 'missing', atau 'unknown'.
+  // Muat daftar dan berkas rekaman suara (dipanggil sekali saat aplikasi dibuka).
+  loadVoice() {
+    if (this.clipsLoading) return this.clipsLoading;
+    this.clipsLoading = (async () => {
+      try {
+        const res = await fetch(`${VOICE_BASE}manifest.json`, { cache: 'no-cache' });
+        if (!res.ok) return false;
+        const manifest = await res.json();
+        const items = manifest && manifest.items;
+        if (!items || typeof items !== 'object') return false;
+        this.clipFiles = new Map(Object.entries(items).map(([k, v]) => [k, typeof v === 'string' ? v : v.f]));
+        const keys = [...this.clipFiles.keys()];
+        // Unduh paralel terbatas; berkas kecil (sekitar 5-15 KB per kalimat).
+        let i = 0;
+        const worker = async () => {
+          while (i < keys.length) {
+            const k = keys[i++];
+            const f = this.clipFiles.get(k);
+            if (!/^[a-z0-9_.-]+$/i.test(f)) continue; // hanya nama berkas sederhana
+            try {
+              const r = await fetch(`${VOICE_BASE}${f}`);
+              if (r.ok) this.clipBytes.set(k, await r.arrayBuffer());
+            } catch {
+              /* lewati berkas yang gagal */
+            }
+          }
+        };
+        await Promise.all(Array.from({ length: 6 }, worker));
+        this.clipsReady = this.clipBytes.size > 0 && this.clipBytes.size >= keys.length * 0.9;
+        if (this.ctx) this._predecode();
+        return this.clipsReady;
+      } catch {
+        return false;
+      } finally {
+        this.clipsDone = true;
+      }
+    })();
+    return this.clipsLoading;
+  }
+
+  hasClip(sentence) {
+    return this.clipBytes.has(voiceKey(sentence));
+  }
+
+  // Status suara untuk beranda: 'clips' (rekaman SonarID siap), 'ok' (suara Indonesia ponsel),
+  // 'missing' (tidak ada keduanya), atau 'unknown' (masih dimuat).
   voiceStatus() {
+    if (this.clipsReady) return 'clips';
+    if (this.clipsLoading && !this.clipsDone) return 'unknown'; // rekaman masih dimuat
     if (!this.speechSupported) return 'missing';
     if (!this.voice) this._pickVoice();
     if (this.voice) return 'ok';
@@ -75,12 +142,25 @@ class Feedback {
           this.master = this.ctx.createGain();
           this.master.gain.value = 0.6;
           this.master.connect(this.ctx.destination);
+          this.speechGain = this.ctx.createGain();
+          this.speechGain.gain.value = 1;
+          this.speechGain.connect(this.ctx.destination);
         }
       }
       if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+      // iOS Safari: putar satu sampel hening di dalam ketukan agar audio benar-benar terbuka.
+      if (this.ctx && !this.silentPlayed) {
+        const b = this.ctx.createBuffer(1, 1, 22050);
+        const src = this.ctx.createBufferSource();
+        src.buffer = b;
+        src.connect(this.ctx.destination);
+        src.start(0);
+        this.silentPlayed = true;
+      }
     } catch {
       this.ctx = null;
     }
+    if (this.ctx) this._predecode();
     if (this.speechSupported && !this.unlocked) {
       try {
         // Ucapan kosong untuk "membuka" mesin suara pada Android/iOS.
@@ -99,11 +179,218 @@ class Feedback {
     this.level = level;
   }
 
-  // Ucapkan teks. interrupt=true memotong ucapan sebelumnya. rate: kecepatan bicara (1 = normal).
+  // Decode lebih awal kalimat yang paling sering dipakai agar ucapan pertama langsung terdengar.
+  _predecode() {
+    if (!this.ctx || this._predecoding || !this.clipBytes.size) return;
+    this._predecoding = true;
+    const keys = [...this.clipBytes.keys()];
+    let i = 0;
+    // Sedikit demi sedikit saat browser senggang, agar tidak mengganggu analisis kamera.
+    const later = (fn) =>
+      typeof window.requestIdleCallback === 'function' ? window.requestIdleCallback(fn, { timeout: 500 }) : setTimeout(fn, 40);
+    const step = () => {
+      const batch = keys.slice(i, i + 3);
+      i += 3;
+      Promise.all(batch.map((k) => this._decode(k).catch(() => null))).then(() => {
+        if (i < keys.length) later(step);
+      });
+    };
+    later(step);
+  }
+
+  _decode(key) {
+    if (this.clipDecoded.has(key)) return this.clipDecoded.get(key);
+    const bytes = this.clipBytes.get(key);
+    if (!bytes || !this.ctx) return Promise.reject(new Error('tidak ada rekaman'));
+    const p = new Promise((resolve, reject) => {
+      // Salin agar data asli tetap ada (decodeAudioData mengosongkan ArrayBuffer).
+      this.ctx.decodeAudioData(bytes.slice(0), resolve, reject);
+    });
+    this.clipDecoded.set(key, p);
+    p.catch(() => this.clipDecoded.delete(key));
+    return p;
+  }
+
+  _stopClip() {
+    const src = this.clipSource;
+    this.clipSource = null;
+    if (src) {
+      try {
+        src.onended = null;
+        src.stop();
+      } catch {
+        /* abaikan */
+      }
+      if (src._done) src._done();
+    }
+  }
+
+  // Rekaman TTS biasanya diawali dan diakhiri hening (100-300 ms). Hening itu dilewati agar
+  // instruksi terdengar seketika, seperti asisten suara modern.
+  _bounds(buffer) {
+    let b = this.clipBounds.get(buffer);
+    if (b) return b;
+    const data = buffer.getChannelData(0);
+    const thr = 0.01;
+    let s = 0;
+    while (s < data.length && Math.abs(data[s]) < thr) s++;
+    let e = data.length - 1;
+    while (e > s && Math.abs(data[e]) < thr) e--;
+    const sr = buffer.sampleRate;
+    if (s >= data.length) b = { start: 0, dur: buffer.duration };
+    else {
+      const start = Math.max(0, s / sr - 0.02);
+      const end = Math.min(buffer.duration, e / sr + 0.06);
+      b = { start, dur: Math.max(0.05, end - start) };
+    }
+    this.clipBounds.set(buffer, b);
+    return b;
+  }
+
+  // Putar satu potongan rekaman; selesai saat potongan habis atau dihentikan.
+  async _playClip(key, gen) {
+    if (this.ctx && this.ctx.state === 'suspended') {
+      try {
+        await this.ctx.resume();
+      } catch {
+        /* abaikan */
+      }
+    }
+    return this._decode(key).then(
+      (buffer) =>
+        new Promise((resolve) => {
+          if (this.gen !== gen || !this.ctx || this.ctx.state === 'closed') {
+            resolve();
+            return;
+          }
+          const src = this.ctx.createBufferSource();
+          src.buffer = buffer;
+          src.connect(this.speechGain || this.ctx.destination);
+          let done = false;
+          src._done = () => {
+            if (done) return;
+            done = true;
+            resolve();
+          };
+          src.onended = () => {
+            if (this.clipSource === src) this.clipSource = null;
+            src._done();
+          };
+          this.clipSource = src;
+          const b = this._bounds(buffer);
+          src.start(0, b.start, b.dur);
+        }),
+      () => undefined,
+    );
+  }
+
+  // Nada panduan dilirihkan selama suara berbicara agar kalimat tetap jelas.
+  _duck(on) {
+    if (!this.master || !this.ctx) return;
+    try {
+      const t = this.ctx.currentTime;
+      this.master.gain.cancelScheduledValues(t);
+      this.master.gain.setTargetAtTime(on ? 0.2 : 0.6, t, 0.05);
+    } catch {
+      /* abaikan */
+    }
+  }
+
+  // Ucapkan teks. interrupt=true memotong ucapan sebelumnya. rate: kecepatan bicara untuk suara cadangan.
+  // Urutan sumber suara: (1) rekaman SonarID per kalimat, (2) suara bahasa Indonesia milik ponsel,
+  // (3) bila keduanya tidak ada: kalimat yang punya rekaman tetap diputar, sisanya tampil di layar saja.
   say(text, { interrupt = false, rate = 1 } = {}) {
-    if (!text || !this.speechSupported) return Promise.resolve();
+    if (!text) return Promise.resolve();
+    const ticket = (this.ticket = (this.ticket || 0) + 1);
+    // Rekaman masih diunduh (misalnya pengguna langsung menekan Mulai): tunggu sebentar agar kalimat
+    // pertama tetap terdengar dengan suara pemandu, bukan diam atau suara ponsel.
+    if (this.clipsLoading && !this.clipsDone && this.ctx) {
+      const keys = splitSentences(text).map((x) => voiceKey(x));
+      if (!keys.every((k) => this.clipBytes.has(k))) {
+        return Promise.race([this.clipsLoading, new Promise((r) => setTimeout(r, 3000))]).then(() => {
+          if (interrupt && ticket !== this.ticket) return undefined; // sudah ada ucapan yang lebih baru
+          return this._sayNow(text, { interrupt, rate });
+        });
+      }
+    }
+    return this._sayNow(text, { interrupt, rate });
+  }
+
+  _sayNow(text, { interrupt = false, rate = 1 } = {}) {
+    const sentences = splitSentences(text);
+    const keys = sentences.map((x) => voiceKey(x));
+    const ctxOk = !!this.ctx && this.ctx.state !== 'closed';
+    if (ctxOk && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+    const canClip = ctxOk && keys.some((k) => this.clipBytes.has(k));
+    const allClips = canClip && keys.every((k) => this.clipBytes.has(k));
+    if (!this.voice && this.speechSupported) this._pickVoice();
+    const ttsOk = this.speechSupported && !!this.voice;
+    const via = allClips || (canClip && !ttsOk) ? 'clip' : ttsOk ? 'tts' : 'none';
+    this._emit(text, via);
+    if (via === 'clip') return this._sayClips(text, keys, interrupt);
+    if (via === 'tts') return this._sayTts(text, { interrupt, rate });
+    return Promise.resolve();
+  }
+
+  // Kabar untuk komponen lain (dan pengujian otomatis): kalimat apa yang diucapkan dan dari sumber mana.
+  _emit(text, via) {
+    try {
+      window.dispatchEvent(new CustomEvent('sonarid:say', { detail: { text, via } }));
+    } catch {
+      /* abaikan */
+    }
+  }
+
+  _sayClips(text, keys, interrupt) {
+    const id = (this.sayId = (this.sayId || 0) + 1);
+    if (interrupt) {
+      // Generasi baru: semua ucapan yang sedang berjalan atau mengantre dibatalkan.
+      this.gen = (this.gen || 0) + 1;
+      this._stopClip();
+      this._cancelTts();
+    }
+    const gen = this.gen || 0;
+    const run = async () => {
+      if (this.gen !== gen) return;
+      this.speaking = true;
+      this.lastSpoken = text;
+      this.lastSpokenAt = performance.now();
+      this._duck(true);
+      for (let i = 0; i < keys.length; i++) {
+        if (this.gen !== gen) break;
+        if (!this.clipBytes.has(keys[i])) continue;
+        await this._playClip(keys[i], gen);
+        if (i < keys.length - 1 && this.gen === gen) await new Promise((r) => setTimeout(r, 90));
+      }
+      // Hanya ucapan terakhir yang boleh menandai "selesai bicara".
+      if (this.sayId === id) {
+        this.speaking = false;
+        this._duck(false);
+      }
+    };
+    // Tanpa interrupt: antre setelah ucapan yang sedang berjalan.
+    const p = interrupt ? run() : this.clipQueue.then(run);
+    this.clipQueue = p.catch(() => {});
+    return p;
+  }
+
+  _cancelTts() {
+    if (!this.speechSupported) return;
+    try {
+      const synth = window.speechSynthesis;
+      if (synth.speaking || synth.pending) synth.cancel();
+    } catch {
+      /* abaikan */
+    }
+  }
+
+  _sayTts(text, { interrupt = false, rate = 1 } = {}) {
     const synth = window.speechSynthesis;
     const id = (this.sayId = (this.sayId || 0) + 1);
+    if (interrupt) {
+      this.gen = (this.gen || 0) + 1;
+      this._stopClip();
+    }
     return new Promise((resolve) => {
       let done = false;
       const finish = () => {
@@ -114,7 +401,6 @@ class Feedback {
         resolve();
       };
       try {
-        if (!this.voice) this._pickVoice(); // daftar suara di Android sering baru tersedia belakangan
         const u = new SpeechSynthesisUtterance(text);
         u.lang = 'id-ID';
         if (this.voice) {
@@ -154,6 +440,9 @@ class Feedback {
   }
 
   stopSpeech() {
+    this.sayId = (this.sayId || 0) + 1;
+    this.gen = (this.gen || 0) + 1;
+    this._stopClip();
     if (this.speechSupported) {
       try {
         window.speechSynthesis.cancel();
@@ -162,6 +451,7 @@ class Feedback {
       }
     }
     this.speaking = false;
+    this._duck(false);
   }
 
   vibrate(pattern) {
@@ -283,7 +573,7 @@ class Feedback {
     this.vibrate([200, 100, 200]);
     this._blip(660, -0.8, 0.12, 0.35);
     setTimeout(() => this._blip(880, 0.8, 0.12, 0.35), 220);
-    return this.say('Uji suara SonarID. Jika ponsel bergetar dan suara ini terdengar jelas, semuanya siap.', { interrupt: true });
+    return this.say(PHRASES.test, { interrupt: true });
   }
 
   // Bunyi rana kamera + getar singkat saat foto diambil.
