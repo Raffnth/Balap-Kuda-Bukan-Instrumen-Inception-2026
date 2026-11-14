@@ -7,7 +7,7 @@ export const TARGETS = {
   // Kartu tidak harus di tengah atau lurus sempurna: kemiringan diluruskan sebelum OCR, dan
   // kelayakan akhir ditentukan oleh terbacanya NIK (lihat Guide.jsx, checkKtp).
   ktp: {
-    sizeMin: 0.38, // lebar kartu minimal 38% lebar tampilan
+    sizeMin: 0.33, // lebar kartu minimal 33% lebar tampilan (ketajaman NIK tetap dijaga oleh minPx)
     minPx: 250, // lebar kartu minimal dalam piksel kamera asli, agar digit NIK cukup besar (teruji OCR)
     edge: 0.01, // kartu harus utuh, tidak terpotong tepi tampilan
     maxAngle: 30, // kemiringan sampai 30 derajat masih diluruskan otomatis sebelum OCR

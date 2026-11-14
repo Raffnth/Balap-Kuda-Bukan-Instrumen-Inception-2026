@@ -42,9 +42,11 @@
       </div>
       <p>
         Kartu uji pengganti KTP untuk mencoba SonarID tanpa memakai KTP asli. Tampilkan di layar lain atau cetak
-        seukuran KTP, lalu letakkan di atas permukaan gelap. Semua data pada kartu ini fiktif.
+        seukuran KTP, lalu letakkan di atas meja (gelap atau terang). Semua data pada kartu ini fiktif.
       </p>
-      <button type="button" onclick="window.print()">Cetak kartu uji</button>
+      <button type="button" id="cetak">Cetak kartu uji</button>
     </main>
+    <!-- Skrip terpisah (bukan onclick) agar sesuai Kebijakan Keamanan Konten situs. -->
+    <script src="/kartu-uji.js" defer></script>
   </body>
 </html>

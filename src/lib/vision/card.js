@@ -1,6 +1,8 @@
 // Deteksi KTP ringan tanpa pustaka luar.
 // Cara kerja: ambang Otsu memisahkan kartu dari latar, komponen terhubung terbesar dipilih,
 // lalu momen citra dipakai untuk menghitung pusat, ukuran, rasio sisi, dan kemiringan kartu.
+// Ada dua jalur ambang: (1) kecerahan, untuk kartu di atas permukaan gelap, dan (2) warna biru KTP,
+// untuk kartu di atas permukaan terang (meja putih, abu-abu, kayu) yang kecerahannya mirip kartu.
 // Kartu ID-1 (ISO/IEC 7810) berukuran 85,60 x 53,98 mm, rasio sisi 1,586.
 
 import { toGray, otsuThreshold } from './imageTools.js';
@@ -150,7 +152,47 @@ function isStrong(c) {
   return !c.partial && c.rectangularity >= 0.9 && c.aspect >= 1.35 && c.aspect <= 1.85 && c.touches === 0;
 }
 
-const buffers = { size: 0, mask: null, labels: null, stack: null, reached: null };
+const buffers = { size: 0, mask: null, labels: null, stack: null, reached: null, chroma: null };
+
+// Saluran "kebiruan" (biru dikurangi merah) per piksel. Latar KTP biru muda; meja putih/abu-abu netral
+// dan meja kayu kemerahan, sehingga kartu tetap terpisah walau kecerahannya sama dengan meja.
+// Piksel gelap dibuat netral karena warnanya tidak dapat dipercaya (derau kamera).
+function blueness(data, gray, out) {
+  for (let i = 0, j = 0; i < out.length; i++, j += 4) {
+    if (gray[i] < 70) {
+      out[i] = 128;
+      continue;
+    }
+    const v = 128 + data[j + 2] - data[j];
+    out[i] = v < 0 ? 0 : v > 255 ? 255 : v;
+  }
+  return out;
+}
+
+// Ambang Otsu pada saluran kebiruan, hanya bila ada dua kelompok warna yang benar-benar berbeda.
+function chromaThreshold(chroma) {
+  const { threshold, variance } = otsuThreshold(chroma, true);
+  let sumLo = 0;
+  let nLo = 0;
+  let sumHi = 0;
+  let nHi = 0;
+  for (let i = 0; i < chroma.length; i++) {
+    const v = chroma[i];
+    if (v <= threshold) {
+      sumLo += v;
+      nLo++;
+    } else {
+      sumHi += v;
+      nHi++;
+    }
+  }
+  if (!nLo || !nHi) return null;
+  const frac = nHi / chroma.length;
+  const sep = sumHi / nHi - sumLo / nLo;
+  // Kelompok "biru" harus 3-92% layar dan cukup berbeda warnanya dari latar.
+  if (frac < 0.03 || frac > 0.92 || sep < 12 || variance < 4) return null;
+  return threshold;
+}
 
 // imageData: hasil getImageData dari frame kamera yang diperkecil (lebar sekitar 160-200 px).
 // prev (opsional): posisi dan ukuran kartu terakhir { cx, cy, size } agar pilihan kandidat tidak
@@ -160,7 +202,9 @@ export function detectCard(imageData, prev = null) {
   const gray = toGray(data, w, h);
   const { threshold, variance } = otsuThreshold(gray, true);
   const empty = { found: false, contrast: variance };
-  if (variance < 150) return empty; // tidak ada objek yang kontras dengan latar
+  // Kontras kecerahan rendah: jalur kecerahan dilewati, tetapi jalur warna tetap dicoba
+  // (kartu biru di atas meja putih bisa sama terangnya dengan meja).
+  const lowContrast = variance < 150;
 
   const n = w * h;
   if (buffers.size !== n) {
@@ -169,6 +213,7 @@ export function detectCard(imageData, prev = null) {
     buffers.labels = new Int32Array(n);
     buffers.stack = new Int32Array(n);
     buffers.reached = new Uint8Array(n);
+    buffers.chroma = new Uint8Array(n);
   }
   const { mask, labels, stack, reached } = buffers;
 
@@ -201,8 +246,9 @@ export function detectCard(imageData, prev = null) {
 
   const candidates = [];
   let close = null; // kartu menutupi hampir seluruh layar (ponsel terlalu dekat)
-  const scan = (bright, thr) => {
-    for (let i = 0; i < n; i++) mask[i] = bright ? (gray[i] > thr ? 1 : 0) : gray[i] <= thr ? 1 : 0;
+  const scan = (bright, thr, chroma = null) => {
+    if (chroma) for (let i = 0; i < n; i++) mask[i] = chroma[i] > thr ? 1 : 0;
+    else for (let i = 0; i < n; i++) mask[i] = bright ? (gray[i] > thr ? 1 : 0) : gray[i] <= thr ? 1 : 0;
     for (const comp of largestComponents(mask, w, h, labels, stack)) {
       if (comp.area < 0.02 * n) continue;
       const d = describe(filledMoments(comp, labels, w, h, reached, stack), w, h);
@@ -217,20 +263,29 @@ export function detectCard(imageData, prev = null) {
       if (!full && !partial) continue;
       const ratioScore = full ? 1 - Math.min(1, Math.abs(d.aspect - ID1_RATIO) / 0.8) : 0;
       const score = d.areaRatio * d.rectangularity * (0.5 + 0.5 * ratioScore) * (partial ? 0.6 : 1);
-      candidates.push({ ...d, score, bright, partial });
+      candidates.push({ ...d, score, bright, partial, chroma: !!chroma });
     }
   };
-  // Kartu terang di latar gelap (kasus utama: KTP dan kartu uji) lebih dulu.
-  for (const thr of brightThr) {
-    scan(true, thr);
-    if (candidates.some(isStrong)) break;
-  }
-  // Kartu gelap di latar terang hanya dicoba bila tidak ada kandidat terang sama sekali.
-  if (!candidates.length) {
-    for (const thr of darkThr) {
-      scan(false, thr);
+  if (!lowContrast) {
+    // Kartu terang di latar gelap (kasus utama: KTP dan kartu uji) lebih dulu.
+    for (const thr of brightThr) {
+      scan(true, thr);
       if (candidates.some(isStrong)) break;
     }
+    // Kartu gelap di latar terang hanya dicoba bila tidak ada kandidat terang sama sekali.
+    if (!candidates.length) {
+      for (const thr of darkThr) {
+        scan(false, thr);
+        if (candidates.some(isStrong)) break;
+      }
+    }
+  }
+  // Jalur warna: dicoba bila jalur kecerahan belum menemukan kartu yang jelas.
+  // Kandidat warna dihitung sebagai "kartu terang" (latar KTP), bukan bayangan atau benda gelap.
+  if (!candidates.some(isStrong)) {
+    const chroma = blueness(data, gray, buffers.chroma);
+    const thr = chromaThreshold(chroma);
+    if (thr !== null) scan(true, thr, chroma);
   }
   if (!candidates.length) {
     if (close) {
